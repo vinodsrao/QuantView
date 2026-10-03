@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QuantView - Stock & Crypto Charting</title>
+  <title>QuantView - Stock, Bonds & Crypto Charting</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
@@ -55,9 +55,10 @@
 <!-- Header Navigation Bar -->
 <header class="h-12 border-b border-[#2a2e39] bg-[#1e222d] flex items-center justify-between px-4 z-10 shrink-0">
   <div class="flex items-center space-x-4">
+    <!-- Updated App Name / Branding -->
     <div class="flex items-center space-x-2 font-bold text-lg text-white">
       <span class="text-blue-500">❖</span>
-      <span>ProChart</span>
+      <span>QuantView</span>
     </div>
     <div class="h-4 w-[1px] bg-[#363c4e]"></div>
 
@@ -179,14 +180,14 @@
   const DEFAULT_WATCHLISTS = {
     "Tech & Crypto": [
       { type: 'section', title: '### STOCKS' },
-      { type: 'ticker', symbol: 'AAPL', name: 'Apple Inc.' },
-      { type: 'ticker', symbol: 'AXISCADES.NS', name: 'Axiscades Technologies' },
-      { type: 'ticker', symbol: 'TVSMOTOR.NS', name: 'TVS Motor Company' },
-      { type: 'ticker', symbol: 'TSLA', name: 'Tesla Inc.' },
-      { type: 'ticker', symbol: 'NVDA', name: 'NVIDIA Corp.' },
+      { type: 'ticker', symbol: 'AAPL' },
+      { type: 'ticker', symbol: 'AXISCADES.NS' },
+      { type: 'ticker', symbol: 'TVSMOTOR.NS' },
+      { type: 'ticker', symbol: 'TSLA' },
+      { type: 'ticker', symbol: 'NVDA' },
       { type: 'section', title: '### CRYPTO' },
-      { type: 'ticker', symbol: 'BTC-USD', name: 'Bitcoin USD' },
-      { type: 'ticker', symbol: 'ETH-USD', name: 'Ethereum USD' }
+      { type: 'ticker', symbol: 'BTC-USD' },
+      { type: 'ticker', symbol: 'ETH-USD' }
     ]
   };
 
@@ -606,10 +607,11 @@
           loadData(item.symbol, currentTimeframe);
           renderActiveWatchlist();
         };
+
+        // Streamlined: Display Ticker Only
         div.innerHTML = `
           <div class="pointer-events-none">
             <div class="font-bold text-xs text-white">${item.symbol}</div>
-            <div class="text-[10px] text-gray-400">${item.name}</div>
           </div>
           <button onclick="event.stopPropagation(); removeWatchlistItem(${idx})" class="text-gray-500 hover:text-red-400 text-xs">×</button>
         `;
@@ -757,7 +759,7 @@
         const sym = prompt("Enter Yahoo ticker symbol (e.g., AAPL, TVSMOTOR.NS, BTC-USD):");
         if (sym && watchlists[activeWatchlistName]) {
           const upper = sym.toUpperCase().trim();
-          watchlists[activeWatchlistName].push({ type: 'ticker', symbol: upper, name: upper });
+          watchlists[activeWatchlistName].push({ type: 'ticker', symbol: upper });
           saveWatchlistsState();
           renderActiveWatchlist();
         }
