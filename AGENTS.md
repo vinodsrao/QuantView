@@ -10,9 +10,10 @@
 
 ## Key Constraints & Conventions
 1. **Yahoo Finance Ranges & Intervals:**
-   - `1d` -> `range=1d&interval=5m`
-   - `1w` -> `range=5d&interval=15m`
-   - `1M` -> `range=1mo&interval=1d`
+   UI Timeframe buttons (1D, 1W, 1M) represent candle bar periods (intervals), NOT ranges:
+   - `1d` -> Daily bars (`interval=1d`, `range=10y`)
+   - `1w` -> Weekly bars (`interval=1wk`, `range=10y`)
+   - `1M` -> Monthly bars (`interval=1mo`, `range=max`)
 2. **Timestamps:** Yahoo Finance returns Unix timestamps in seconds (`result.timestamp[]`).
 3. **Chart Rendering:** All charts use `LightweightCharts` with synchronized price and volume panes.
 4. **Deployments:** Never use `amondnet/vercel-action` or old Wrangler actions; use `vercel@latest` and `npx wrangler` directly in GHA.

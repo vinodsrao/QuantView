@@ -13,7 +13,7 @@ export default {
 
     const url = new URL(request.url);
     const symbol = url.searchParams.get("symbol") || "AAPL";
-    const range = url.searchParams.get("range") || "1mo";
+    const range = url.searchParams.get("range") || "10y";
     const interval = url.searchParams.get("interval") || "1d";
 
     const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}`;
