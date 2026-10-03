@@ -33,7 +33,9 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy . --project-name=quantview
+          run: |
+            npx wrangler pages project create quantview --production-branch=main || true
+            npx wrangler pages deploy . --project-name=quantview --branch=main
 
   deploy-frontend-vercel:
     name: Deploy Frontend to Vercel
