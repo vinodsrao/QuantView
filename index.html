@@ -303,12 +303,19 @@
       const chartOptions = {
         layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
         grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-        rightPriceScale: { minimumWidth: 75 },
+        rightPriceScale: {
+          minimumWidth: 75,
+          mode: 1 // 1 = Logarithmic mode in Lightweight Charts
+        },
         timeScale: { rightOffset: 5, barSpacing: 8 }
       };
 
       priceChart = LightweightCharts.createChart(priceContainer, { ...chartOptions, height: pHeight });
-      volumeChart = LightweightCharts.createChart(volumeContainer, { ...chartOptions, height: vHeight });
+      volumeChart = LightweightCharts.createChart(volumeContainer, {
+        ...chartOptions,
+        height: vHeight,
+        rightPriceScale: { minimumWidth: 75, mode: 0 } // Volume keeps Normal (Linear) scale
+      });
 
       candleSeries = priceChart.addCandlestickSeries();
       volumeSeries = volumeChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
