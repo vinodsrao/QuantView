@@ -95,10 +95,10 @@
 <!-- Main App Layout -->
 <div class="flex-1 flex overflow-hidden">
 
-  <!-- Chart Column (Status Bar + Price Pane + Volume Pane) -->
+  <!-- Chart Column -->
   <div class="flex-1 flex flex-col overflow-hidden bg-[#131722] border-r border-[#2a2e39]">
 
-    <!-- Dynamic Performance Metrics Top Status Bar -->
+    <!-- Top Performance Bar -->
     <div
             class="h-9 border-b border-[#2a2e39] bg-[#1a1e29] px-4 flex items-center justify-between text-xs font-mono overflow-x-auto whitespace-nowrap shrink-0">
       <div class="flex items-center space-x-4">
@@ -116,24 +116,23 @@
       </div>
     </div>
 
-    <!-- Main Candlestick Chart Pane (Log Scale) -->
+    <!-- Main Candlestick Chart Pane -->
     <div id="price-chart-container" class="relative"></div>
 
     <!-- Separator Border -->
     <div class="h-[1px] bg-[#2a2e39] w-full shrink-0"></div>
 
-    <!-- Dedicated Synchronized Volume Chart Pane (Linear Scale) -->
+    <!-- Dedicated Synchronized Volume Chart Pane -->
     <div id="volume-chart-container" class="relative shrink-0"></div>
   </div>
 
-  <!-- Sidebar: Multiple Watchlists -->
+  <!-- Sidebar: Watchlists -->
   <div class="w-80 bg-[#1e222d] flex flex-col shrink-0 border-l border-[#2a2e39]">
 
     <!-- Watchlist Selector Toolbar -->
     <div class="p-2 border-b border-[#2a2e39] flex items-center justify-between bg-[#171b26] space-x-2">
       <select id="watchlist-select"
               class="bg-[#2a2e39] text-white text-xs rounded px-2 py-1 flex-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
-        <!-- Watchlists rendered dynamically -->
       </select>
       <div class="flex items-center space-x-1 shrink-0">
         <button id="new-wl-btn" title="Create New Watchlist"
@@ -145,7 +144,7 @@
       </div>
     </div>
 
-    <!-- Watchlist Items Toolbar Header -->
+    <!-- Watchlist Items Header -->
     <div class="px-3 py-2 border-b border-[#2a2e39] flex items-center justify-between">
       <span class="font-bold text-xs text-gray-400 uppercase tracking-wider">Symbols</span>
       <div class="flex items-center space-x-1">
@@ -157,9 +156,7 @@
     </div>
 
     <!-- Watchlist Items Container -->
-    <div id="watchlist-items" class="flex-1 overflow-y-auto p-2 space-y-1">
-      <!-- Dynamic Watchlist Items Rendered Here -->
-    </div>
+    <div id="watchlist-items" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
   </div>
 
 </div>
@@ -173,39 +170,43 @@
   let chartData = [];
   let priceChart, volumeChart, candleSeries, volumeSeries;
 
-  // Timeframe mapping matrix for Yahoo Finance API
   const TIMEFRAME_MAP = {
     '1d': { range: '10y', interval: '1d' },
     '1w': { range: '10y', interval: '1wk' },
     '1M': { range: 'max', interval: '1mo' }
   };
 
-  // Default watchlists fallback
   const DEFAULT_WATCHLISTS = {
     "Tech & Crypto": [
       { type: 'section', title: '### STOCKS' },
       { type: 'ticker', symbol: 'AAPL', name: 'Apple Inc.' },
+      { type: 'ticker', symbol: 'AXISCADES.NS', name: 'Axiscades Technologies' },
+      { type: 'ticker', symbol: 'TVSMOTOR.NS', name: 'TVS Motor Company' },
       { type: 'ticker', symbol: 'TSLA', name: 'Tesla Inc.' },
       { type: 'ticker', symbol: 'NVDA', name: 'NVIDIA Corp.' },
       { type: 'section', title: '### CRYPTO' },
       { type: 'ticker', symbol: 'BTC-USD', name: 'Bitcoin USD' },
       { type: 'ticker', symbol: 'ETH-USD', name: 'Ethereum USD' }
-    ],
-    "Major Indices": [
-      { type: 'section', title: '### US INDICES' },
-      { type: 'ticker', symbol: 'SPY', name: 'SPDR S&P 500 ETF' },
-      { type: 'ticker', symbol: 'QQQ', name: 'Invesco QQQ Trust' },
-      { type: 'ticker', symbol: 'IWM', name: 'iShares Russell 2000 ETF' }
     ]
   };
 
-  // Load watchlists state from localStorage
   let watchlists = JSON.parse(localStorage.getItem('quantview_watchlists')) || DEFAULT_WATCHLISTS;
   let activeWatchlistName = localStorage.getItem('quantview_active_watchlist') || Object.keys(watchlists)[0] || "Tech & Crypto";
 
   function saveWatchlistsState() {
     localStorage.setItem('quantview_watchlists', JSON.stringify(watchlists));
     localStorage.setItem('quantview_active_watchlist', activeWatchlistName);
+  }
+
+  // Timezone & Timestamp Normalization Engine
+  function normalizeTimestamp(timeInSeconds, timeframeKey) {
+    if (timeframeKey === '1M') {
+      // Add 12h buffer (43200 seconds) so exchange timezones ahead of UTC (e.g. IST UTC+5:30)
+      // stay in the correct calendar month without rolling back
+      const date = new Date((timeInSeconds + 43200) * 1000);
+      return Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000);
+    }
+    return timeInSeconds;
   }
 
   // 2. PINE SCRIPT MATH ENGINE
@@ -264,30 +265,34 @@
       const isAccu = zScore > zThreshold && !isChurn && pChg > (-0.5 * atr) && ((pChg > 0 && clv > 0.4) || clv > 0.8);
       const isDist = zScore > zThreshold && !isChurn && (pChg < -atr || (pChg < 0 && clv < 0.6) || clv < 0.2);
 
-      const decay = 1.0;
-      const basePower = vRatio * pMoveInten * decay;
+      const basePower = vRatio * pMoveInten;
       const powerAccu = basePower * clv;
       const powerDist = basePower * (1 - clv);
 
-      const accuAlpha = Math.min(100, Math.max(0, 100 - Math.floor(powerAccu * 60)));
-      const distAlpha = Math.min(100, Math.max(0, 100 - Math.floor(powerDist * 60)));
+      const accuAlpha = Math.max(0.7, Math.min(1.0, 0.7 + (powerAccu * 0.1)));
+      const distAlpha = Math.max(0.7, Math.min(1.0, 0.7 + (powerDist * 0.1)));
 
+      // Monochromatic white/gray theme for normal days
       const isBullish = bar.close >= bar.open;
-      let color = isBullish ? '#b2b5be' : '#4c525e';
-      let wickColor = isBullish ? '#b2b5be' : '#848b9a';
+      let color = isBullish ? '#b2b5be' : '#5d606b';
+      let wickColor = isBullish ? '#b2b5be' : '#5d606b';
+      let borderColor = isBullish ? '#b2b5be' : '#5d606b';
       let signalTag = 'NEUTRAL';
 
       if (isChurn) {
-        color = 'rgba(39, 156, 245, 0.8)';
-        wickColor = 'rgba(39, 156, 245, 0.5)';
+        color = 'rgba(39, 156, 245, 0.9)';
+        wickColor = 'rgba(39, 156, 245, 1.0)';
+        borderColor = 'rgba(39, 156, 245, 1.0)';
         signalTag = 'CHURN';
       } else if (isAccu) {
-        color = `rgba(156, 245, 39, ${accuAlpha / 100})`;
-        wickColor = 'rgba(156, 245, 39, 0.5)';
+        color = `rgba(156, 245, 39, ${accuAlpha})`;
+        wickColor = 'rgba(156, 245, 39, 1.0)';
+        borderColor = 'rgba(156, 245, 39, 1.0)';
         signalTag = 'ACCUMULATION';
       } else if (isDist) {
-        color = `rgba(245, 39, 156, ${distAlpha / 100})`;
-        wickColor = 'rgba(245, 39, 156, 0.5)';
+        color = `rgba(245, 39, 156, ${distAlpha})`;
+        wickColor = 'rgba(245, 39, 156, 1.0)';
+        borderColor = 'rgba(245, 39, 156, 1.0)';
         signalTag = 'DISTRIBUTION';
       }
 
@@ -315,7 +320,7 @@
         ...bar,
         color,
         wickColor,
-        borderColor: color,
+        borderColor,
         signalTag,
         atrPct: ((atr / bar.close) * 100).toFixed(2),
         ret1y: isNaN(ret1y) ? '--' : ret1y.toFixed(1) + '%',
@@ -341,27 +346,19 @@
     const baseOptions = {
       layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-      timeScale: { rightOffset: 5, barSpacing: 8 }
+      timeScale: { rightOffset: 5, barSpacing: 10 }
     };
 
-    // Main price chart configured to Logarithmic Mode (mode: 1)
     priceChart = LightweightCharts.createChart(priceContainer, {
       ...baseOptions,
       height: pHeight,
-      rightPriceScale: {
-        minimumWidth: 75,
-        mode: 1
-      }
+      rightPriceScale: { minimumWidth: 75, mode: 1 }
     });
 
-    // Volume pane configured to Normal Linear Mode (mode: 0)
     volumeChart = LightweightCharts.createChart(volumeContainer, {
       ...baseOptions,
       height: vHeight,
-      rightPriceScale: {
-        minimumWidth: 75,
-        mode: 0
-      }
+      rightPriceScale: { minimumWidth: 75, mode: 0 }
     });
 
     candleSeries = priceChart.addCandlestickSeries();
@@ -383,7 +380,6 @@
   function setupTimeframeListeners() {
     const buttons = document.querySelectorAll('.tf-btn');
 
-    // Sync active button highlighting on page load with stored localStorage state
     buttons.forEach(btn => {
       const tf = btn.getAttribute('data-tf');
       if (tf === currentTimeframe) {
@@ -404,8 +400,6 @@
         e.target.classList.remove('text-gray-400');
 
         currentTimeframe = e.target.getAttribute('data-tf');
-
-        // Save chosen timeframe in localStorage
         localStorage.setItem('quantview_tf', currentTimeframe);
 
         loadData(currentSymbol, currentTimeframe);
@@ -445,7 +439,7 @@
     document.getElementById('m-atr').innerText = bar.atrPct + '%';
   }
 
-  // 4. WORKER DATA FETCHING ENGINE & TIMESTAMP DEDUPLICATION
+  // 4. DATA FETCHING & DEDUPLICATION ENGINE
   async function loadData(symbol, tfKey = '1d') {
     const tfConfig = TIMEFRAME_MAP[tfKey] || TIMEFRAME_MAP['1d'];
     const badge = document.getElementById('data-source-badge');
@@ -468,9 +462,8 @@
       const quote = result.indicators.quote[0];
 
       const raw = [];
-      const seenTimestamps = new Set();
+      const timestampMap = new Map();
 
-      // Deduplicate duplicate timestamps returned for current month/bar
       for (let i = 0; i < timestamps.length; i++) {
         if (
           quote.open[i] != null &&
@@ -478,38 +471,58 @@
           quote.low[i] != null &&
           quote.close[i] != null
         ) {
-          const time = timestamps[i];
+          const normalizedTime = normalizeTimestamp(timestamps[i], tfKey);
 
-          if (seenTimestamps.has(time)) {
-            const existingBar = raw[raw.length - 1];
+          if (timestampMap.has(normalizedTime)) {
+            // Merge duplicate month/day entries into the single existing bar
+            const existingBar = timestampMap.get(normalizedTime);
             existingBar.high = Math.max(existingBar.high, quote.high[i]);
             existingBar.low = Math.min(existingBar.low, quote.low[i]);
             existingBar.close = quote.close[i];
             existingBar.volume += (quote.volume[i] || 0);
           } else {
-            seenTimestamps.add(time);
-            raw.push({
-              time: time,
+            const newBar = {
+              time: normalizedTime,
               open: quote.open[i],
               high: quote.high[i],
               low: quote.low[i],
               close: quote.close[i],
               volume: quote.volume[i] || 0
-            });
+            };
+            timestampMap.set(normalizedTime, newBar);
+            raw.push(newBar);
           }
         }
       }
 
       chartData = calculatePineMetrics(raw);
-      candleSeries.setData(chartData);
-      volumeSeries.setData(chartData.map(d => ({ time: d.time, value: d.volume, color: d.color })));
+
+      candleSeries.setData(chartData.map(d => ({
+        time: d.time,
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+        color: d.color,
+        wickColor: d.wickColor,
+        borderColor: d.borderColor
+      })));
+
+      volumeSeries.setData(chartData.map(d => ({
+        time: d.time,
+        value: d.volume,
+        color: d.color
+      })));
 
       const totalBars = chartData.length;
       if (totalBars > 0) {
-        const visibleCount = Math.min(totalBars, tfKey === '1M' ? 60 : 140);
+        let visibleCount = 120; // 1D Default
+        if (tfKey === '1w') visibleCount = 52;  // 1 Year
+        if (tfKey === '1M') visibleCount = 48;  // 4 Years (48 bars) for 1M
+
         const logicalRange = {
-          from: totalBars - visibleCount,
-          to: totalBars + 4
+          from: totalBars - Math.min(totalBars, visibleCount),
+          to: totalBars + 2
         };
         priceChart.timeScale().setVisibleLogicalRange(logicalRange);
         volumeChart.timeScale().setVisibleLogicalRange(logicalRange);
@@ -667,7 +680,7 @@
     const addTickerBtn = document.getElementById('add-ticker-btn');
     if (addTickerBtn) {
       addTickerBtn.onclick = () => {
-        const sym = prompt("Enter Yahoo ticker symbol (e.g., AAPL, MSFT, BTC-USD):");
+        const sym = prompt("Enter Yahoo ticker symbol (e.g., AAPL, TVSMOTOR.NS, BTC-USD):");
         if (sym && watchlists[activeWatchlistName]) {
           const upper = sym.toUpperCase().trim();
           watchlists[activeWatchlistName].push({ type: 'ticker', symbol: upper, name: upper });
@@ -678,7 +691,6 @@
     }
   }
 
-  // Safely attach event listeners after DOM elements are fully loaded
   document.addEventListener('DOMContentLoaded', () => {
     initCharts();
     renderWatchlistSelector();
@@ -688,7 +700,6 @@
     const symbolDisplay = document.getElementById('symbol-display');
     if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
 
-    // Initial data fetch using stored state
     loadData(currentSymbol, currentTimeframe);
   });
 </script>
