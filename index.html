@@ -201,8 +201,6 @@
   // Timezone & Timestamp Normalization Engine
   function normalizeTimestamp(timeInSeconds, timeframeKey) {
     if (timeframeKey === '1M') {
-      // Add 12h buffer (43200 seconds) so exchange timezones ahead of UTC (e.g. IST UTC+5:30)
-      // stay in the correct calendar month without rolling back
       const date = new Date((timeInSeconds + 43200) * 1000);
       return Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000);
     }
@@ -243,13 +241,13 @@
     }
 
     return data.map((bar, i) => {
-      // 1. Average Volume & Standard Deviation
+      // Average Volume & Standard Deviation
       const sliceVol = volumes.slice(Math.max(0, i - len + 1), i + 1);
       const avgVol = sliceVol.reduce((a, b) => a + b, 0) / sliceVol.length;
       const variance = sliceVol.reduce((a, b) => a + Math.pow(b - avgVol, 2), 0) / sliceVol.length;
       const stdVol = Math.sqrt(variance) || 0.0001;
 
-      // 2. True Range & ATR calculation
+      // True Range & ATR
       let trSum = 0;
       const start = Math.max(0, i - len + 1);
       for (let j = start; j <= i; j++) {
@@ -263,7 +261,7 @@
       }
       const atr = trSum / (i - start + 1);
 
-      // 3. Pine Script Signal Metrics
+      // Signal Metrics
       const mintick = 0.0001;
       const zScore = (bar.volume - avgVol) / Math.max(stdVol, mintick);
       const vRatio = bar.volume / Math.max(avgVol, 1);
@@ -272,27 +270,25 @@
       const pChg = i > 0 ? bar.close - data[i - 1].close : 0;
       const pMoveInten = Math.abs(pChg) / Math.max(atr, mintick);
 
-      // 4. Signal Conditions
+      // Signal Conditions
       const prevClose = i > 0 ? data[i - 1].close : bar.open;
       const isChurn = zScore > zThreshold && pMoveInten < 0.3;
       const isAccu = zScore > zThreshold && !isChurn && pChg > (-0.5 * atr) && ((bar.close > prevClose && clv > 0.4) || clv > 0.8);
       const isDist = zScore > zThreshold && !isChurn && (pChg < -atr || (bar.close < prevClose && clv < 0.6) || clv < 0.2);
 
-      // 5. Intensity Alpha Calculations (Converted strictly from Pine Script)
+      // Intensity Alpha Calculations
       const decay = 1.0;
       const basePower = vRatio * pMoveInten * decay;
       const powerAccu = basePower * clv;
       const powerDist = basePower * (1 - clv);
 
-      // Pine Script: color.new(color, 100 - int(power * 60))
-      // Conversion to CSS alpha (0.0 to 1.0):
       const accuTransp = Math.min(100, Math.max(0, 100 - Math.floor(powerAccu * 60)));
       const distTransp = Math.min(100, Math.max(0, 100 - Math.floor(powerDist * 60)));
 
-      const accuAlpha = (100 - accuTransp) / 100; // 0.0 (transparent) -> 1.0 (opaque)
+      const accuAlpha = (100 - accuTransp) / 100;
       const distAlpha = (100 - distTransp) / 100;
 
-      // 6. Monochromatic Theme & Signal Colors
+      // Monochromatic Theme & Signal Colors
       const isBullish = bar.close >= bar.open;
       let color = isBullish ? '#b2b5be' : '#4c525e';
       let wickColor = isBullish ? '#b2b5be' : '#848b9a';
@@ -300,23 +296,23 @@
       let signalTag = 'NEUTRAL';
 
       if (isChurn) {
-        color = 'rgba(39, 156, 245, 0.7)';      // Pine: color.new(#279CF5, 30)
-        wickColor = 'rgba(39, 156, 245, 0.5)';  // Pine: color.new(#279CF5, 50)
+        color = 'rgba(39, 156, 245, 0.7)';
+        wickColor = 'rgba(39, 156, 245, 0.5)';
         borderColor = color;
         signalTag = 'CHURN';
       } else if (isAccu) {
         color = `rgba(156, 245, 39, ${accuAlpha.toFixed(2)})`;
-        wickColor = 'rgba(156, 245, 39, 0.5)';  // Pine: color.new(#9CF527, 50)
+        wickColor = 'rgba(156, 245, 39, 0.5)';
         borderColor = color;
         signalTag = 'ACCUMULATION';
       } else if (isDist) {
         color = `rgba(245, 39, 156, ${distAlpha.toFixed(2)})`;
-        wickColor = 'rgba(245, 39, 156, 0.5)';  // Pine: color.new(#F5279C, 50)
+        wickColor = 'rgba(245, 39, 156, 0.5)';
         borderColor = color;
         signalTag = 'DISTRIBUTION';
       }
 
-      // Performance & Drawdown Calculations
+      // Performance & Drawdowns
       const bar1y = findBarAtTime(bar.time - (365.25 * 86400));
       const bar3y = findBarAtTime(bar.time - (3 * 365.25 * 86400));
       const bar5y = findBarAtTime(bar.time - (5 * 365.25 * 86400));
@@ -446,10 +442,11 @@
 
     const sig = document.getElementById('hud-signal');
     sig.innerText = bar.signalTag;
-    sig.className = `px-1.5 py-0.5 rounded text-[10px] font-sans font-bold ${bar.signalTag === 'ACCUMULATION' ? 'bg-green-900/80 text-green-300' :
-        bar.signalTag === 'DISTRIBUTION' ? 'bg-pink-900/80 text-pink-300' :
-          bar.signalTag === 'CHURN' ? 'bg-blue-900/80 text-blue-300' : 'bg-gray-800 text-gray-400'
-      }`;
+    sig.className = `px-1.5 py-0.5 rounded text-[10px] font-sans font-bold ${
+      bar.signalTag === 'ACCUMULATION' ? 'bg-green-900/80 text-green-300' :
+      bar.signalTag === 'DISTRIBUTION' ? 'bg-pink-900/80 text-pink-300' :
+      bar.signalTag === 'CHURN' ? 'bg-blue-900/80 text-blue-300' : 'bg-gray-800 text-gray-400'
+    }`;
 
     document.getElementById('m-1y').innerText = bar.ret1y;
     document.getElementById('m-3y').innerText = bar.cagr3y;
@@ -495,7 +492,6 @@
           const normalizedTime = normalizeTimestamp(timestamps[i], tfKey);
 
           if (timestampMap.has(normalizedTime)) {
-            // Merge duplicate month/day entries into the single existing bar
             const existingBar = timestampMap.get(normalizedTime);
             existingBar.high = Math.max(existingBar.high, quote.high[i]);
             existingBar.low = Math.min(existingBar.low, quote.low[i]);
@@ -537,9 +533,9 @@
 
       const totalBars = chartData.length;
       if (totalBars > 0) {
-        let visibleCount = 120; // 1D Default
-        if (tfKey === '1w') visibleCount = 52;  // 1 Year
-        if (tfKey === '1M') visibleCount = 48;  // 4 Years (48 bars) for 1M
+        let visibleCount = 120;
+        if (tfKey === '1w') visibleCount = 52;
+        if (tfKey === '1M') visibleCount = 48;
 
         const logicalRange = {
           from: totalBars - Math.min(totalBars, visibleCount),
@@ -564,7 +560,9 @@
     }
   }
 
-  // 5. MULTIPLE WATCHLISTS ENGINE
+  // 5. MULTIPLE WATCHLISTS ENGINE (WITH DRAG & DROP)
+  let draggedIndex = null;
+
   function renderWatchlistSelector() {
     const select = document.getElementById('watchlist-select');
     if (!select) return;
@@ -587,14 +585,20 @@
     const items = watchlists[activeWatchlistName] || [];
 
     items.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.setAttribute('draggable', 'true');
+      div.setAttribute('data-index', idx);
+
       if (item.type === 'section') {
-        const div = document.createElement('div');
-        div.className = 'text-[11px] font-bold text-gray-400 pt-3 pb-1 px-2 border-b border-[#2a2e39] flex justify-between items-center';
-        div.innerHTML = `<span>${item.title}</span><button onclick="removeWatchlistItem(${idx})" class="text-gray-500 hover:text-red-400">×</button>`;
-        container.appendChild(div);
+        div.className = 'text-[11px] font-bold text-gray-400 pt-3 pb-1 px-2 border-b border-[#2a2e39] flex justify-between items-center cursor-grab active:cursor-grabbing transition-all border-t-2 border-t-transparent';
+        div.innerHTML = `
+          <span>${item.title}</span>
+          <button onclick="event.stopPropagation(); removeWatchlistItem(${idx})" class="text-gray-500 hover:text-red-400">×</button>
+        `;
       } else {
-        const div = document.createElement('div');
-        div.className = `p-2 rounded flex justify-between items-center cursor-pointer hover:bg-[#2a2e39] ${item.symbol === currentSymbol ? 'bg-[#2a2e39] border-l-2 border-blue-500' : ''}`;
+        div.className = `p-2 rounded flex justify-between items-center cursor-grab active:cursor-grabbing hover:bg-[#2a2e39] transition-all border-t-2 border-t-transparent ${
+          item.symbol === currentSymbol ? 'bg-[#2a2e39] border-l-2 border-l-blue-500' : ''
+        }`;
         div.onclick = () => {
           currentSymbol = item.symbol;
           localStorage.setItem('quantview_symbol', currentSymbol);
@@ -603,14 +607,63 @@
           renderActiveWatchlist();
         };
         div.innerHTML = `
-          <div>
+          <div class="pointer-events-none">
             <div class="font-bold text-xs text-white">${item.symbol}</div>
             <div class="text-[10px] text-gray-400">${item.name}</div>
           </div>
           <button onclick="event.stopPropagation(); removeWatchlistItem(${idx})" class="text-gray-500 hover:text-red-400 text-xs">×</button>
         `;
-        container.appendChild(div);
       }
+
+      // Drag and Drop Handlers
+      div.addEventListener('dragstart', (e) => {
+        draggedIndex = idx;
+        e.dataTransfer.effectAllowed = 'move';
+        div.classList.add('opacity-40');
+      });
+
+      div.addEventListener('dragend', () => {
+        draggedIndex = null;
+        div.classList.remove('opacity-40');
+        clearDropIndicators();
+      });
+
+      div.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        clearDropIndicators();
+        div.classList.add('border-t-blue-500');
+      });
+
+      div.addEventListener('dragleave', () => {
+        div.classList.remove('border-t-blue-500');
+      });
+
+      div.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearDropIndicators();
+
+        const targetIndex = parseInt(div.getAttribute('data-index'), 10);
+        if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+        const list = watchlists[activeWatchlistName];
+        const [movedItem] = list.splice(draggedIndex, 1);
+        list.splice(targetIndex, 0, movedItem);
+
+        saveWatchlistsState();
+        renderActiveWatchlist();
+      });
+
+      container.appendChild(div);
+    });
+  }
+
+  function clearDropIndicators() {
+    const container = document.getElementById('watchlist-items');
+    if (!container) return;
+    Array.from(container.children).forEach(child => {
+      child.classList.remove('border-t-blue-500');
     });
   }
 
