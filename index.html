@@ -126,17 +126,33 @@
     <div id="volume-chart-container" class="relative shrink-0"></div>
   </div>
 
-  <!-- Sidebar: Watchlists -->
-  <div class="w-80 bg-[#1e222d] flex flex-col shrink-0">
+  <!-- Sidebar: Multiple Watchlists -->
+  <div class="w-80 bg-[#1e222d] flex flex-col shrink-0 border-l border-[#2a2e39]">
 
-    <!-- Watchlist Header -->
-    <div class="p-3 border-b border-[#2a2e39] flex items-center justify-between">
-      <span class="font-bold text-xs text-white">Watchlist</span>
+    <!-- Watchlist Selector Toolbar -->
+    <div class="p-2 border-b border-[#2a2e39] flex items-center justify-between bg-[#171b26] space-x-2">
+      <select id="watchlist-select"
+              class="bg-[#2a2e39] text-white text-xs rounded px-2 py-1 flex-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
+        <!-- Watchlists rendered dynamically -->
+      </select>
+      <div class="flex items-center space-x-1 shrink-0">
+        <button id="new-wl-btn" title="Create New Watchlist"
+                class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold">+</button>
+        <button id="rename-wl-btn" title="Rename Watchlist"
+                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">✏️</button>
+        <button id="delete-wl-btn" title="Delete Watchlist"
+                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-red-900/50 text-red-400 rounded">🗑️</button>
+      </div>
+    </div>
+
+    <!-- Watchlist Items Toolbar Header -->
+    <div class="px-3 py-2 border-b border-[#2a2e39] flex items-center justify-between">
+      <span class="font-bold text-xs text-gray-400 uppercase tracking-wider">Symbols</span>
       <div class="flex items-center space-x-1">
         <button id="add-section-btn" title="Add Section Header"
-                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-200 rounded">+ Section</button>
+                class="text-xs px-2 py-0.5 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-200 rounded">+ Section</button>
         <button id="add-ticker-btn" title="Add Ticker"
-                class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold">+</button>
+                class="text-xs px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold">+ Symbol</button>
       </div>
     </div>
 
@@ -163,6 +179,34 @@
     '1w': { range: '10y', interval: '1wk' },
     '1M': { range: 'max', interval: '1mo' }
   };
+
+  // Default watchlists fallback
+  const DEFAULT_WATCHLISTS = {
+    "Tech & Crypto": [
+      { type: 'section', title: '### STOCKS' },
+      { type: 'ticker', symbol: 'AAPL', name: 'Apple Inc.' },
+      { type: 'ticker', symbol: 'TSLA', name: 'Tesla Inc.' },
+      { type: 'ticker', symbol: 'NVDA', name: 'NVIDIA Corp.' },
+      { type: 'section', title: '### CRYPTO' },
+      { type: 'ticker', symbol: 'BTC-USD', name: 'Bitcoin USD' },
+      { type: 'ticker', symbol: 'ETH-USD', name: 'Ethereum USD' }
+    ],
+    "Major Indices": [
+      { type: 'section', title: '### US INDICES' },
+      { type: 'ticker', symbol: 'SPY', name: 'SPDR S&P 500 ETF' },
+      { type: 'ticker', symbol: 'QQQ', name: 'Invesco QQQ Trust' },
+      { type: 'ticker', symbol: 'IWM', name: 'iShares Russell 2000 ETF' }
+    ]
+  };
+
+  // Load watchlists state from localStorage
+  let watchlists = JSON.parse(localStorage.getItem('quantview_watchlists')) || DEFAULT_WATCHLISTS;
+  let activeWatchlistName = localStorage.getItem('quantview_active_watchlist') || Object.keys(watchlists)[0] || "Tech & Crypto";
+
+  function saveWatchlistsState() {
+    localStorage.setItem('quantview_watchlists', JSON.stringify(watchlists));
+    localStorage.setItem('quantview_active_watchlist', activeWatchlistName);
+  }
 
   // 2. PINE SCRIPT MATH ENGINE
   function calculatePineMetrics(data, zThreshold = 1.0, len = 21) {
@@ -486,25 +530,29 @@
     }
   }
 
-  // 5. WATCHLIST ENGINE
-  const watchlists = {
-    default: [
-      { type: 'section', title: '### STOCKS' },
-      { type: 'ticker', symbol: 'AAPL', name: 'Apple Inc.' },
-      { type: 'ticker', symbol: 'TSLA', name: 'Tesla Inc.' },
-      { type: 'ticker', symbol: 'NVDA', name: 'NVIDIA Corp.' },
-      { type: 'section', title: '### CRYPTO (YAHOO)' },
-      { type: 'ticker', symbol: 'BTC-USD', name: 'Bitcoin USD' },
-      { type: 'ticker', symbol: 'ETH-USD', name: 'Ethereum USD' }
-    ]
-  };
+  // 5. MULTIPLE WATCHLISTS ENGINE
+  function renderWatchlistSelector() {
+    const select = document.getElementById('watchlist-select');
+    if (!select) return;
+    select.innerHTML = '';
 
-  function renderWatchlist() {
+    Object.keys(watchlists).forEach(wlName => {
+      const option = document.createElement('option');
+      option.value = wlName;
+      option.innerText = wlName;
+      if (wlName === activeWatchlistName) option.selected = true;
+      select.appendChild(option);
+    });
+  }
+
+  function renderActiveWatchlist() {
     const container = document.getElementById('watchlist-items');
     if (!container) return;
     container.innerHTML = '';
 
-    watchlists.default.forEach((item, idx) => {
+    const items = watchlists[activeWatchlistName] || [];
+
+    items.forEach((item, idx) => {
       if (item.type === 'section') {
         const div = document.createElement('div');
         div.className = 'text-[11px] font-bold text-gray-400 pt-3 pb-1 px-2 border-b border-[#2a2e39] flex justify-between items-center';
@@ -518,7 +566,7 @@
           localStorage.setItem('quantview_symbol', currentSymbol);
           document.getElementById('symbol-display').innerText = item.symbol;
           loadData(item.symbol, currentTimeframe);
-          renderWatchlist();
+          renderActiveWatchlist();
         };
         div.innerHTML = `
           <div>
@@ -533,25 +581,85 @@
   }
 
   function removeWatchlistItem(idx) {
-    watchlists.default.splice(idx, 1);
-    renderWatchlist();
+    if (watchlists[activeWatchlistName]) {
+      watchlists[activeWatchlistName].splice(idx, 1);
+      saveWatchlistsState();
+      renderActiveWatchlist();
+    }
   }
 
-  // Safely attach event listeners after DOM elements are fully loaded
-  document.addEventListener('DOMContentLoaded', () => {
-    initCharts();
-    renderWatchlist();
+  function setupWatchlistControls() {
+    const select = document.getElementById('watchlist-select');
+    const newBtn = document.getElementById('new-wl-btn');
+    const renameBtn = document.getElementById('rename-wl-btn');
+    const deleteBtn = document.getElementById('delete-wl-btn');
 
-    const symbolDisplay = document.getElementById('symbol-display');
-    if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
+    if (select) {
+      select.onchange = (e) => {
+        activeWatchlistName = e.target.value;
+        saveWatchlistsState();
+        renderActiveWatchlist();
+      };
+    }
+
+    if (newBtn) {
+      newBtn.onclick = () => {
+        const name = prompt("Enter new watchlist name:");
+        if (name && name.trim()) {
+          const cleanName = name.trim();
+          if (!watchlists[cleanName]) {
+            watchlists[cleanName] = [];
+            activeWatchlistName = cleanName;
+            saveWatchlistsState();
+            renderWatchlistSelector();
+            renderActiveWatchlist();
+          } else {
+            alert("A watchlist with that name already exists!");
+          }
+        }
+      };
+    }
+
+    if (renameBtn) {
+      renameBtn.onclick = () => {
+        const newName = prompt(`Rename watchlist "${activeWatchlistName}" to:`, activeWatchlistName);
+        if (newName && newName.trim() && newName.trim() !== activeWatchlistName) {
+          const cleanName = newName.trim();
+          watchlists[cleanName] = watchlists[activeWatchlistName];
+          delete watchlists[activeWatchlistName];
+          activeWatchlistName = cleanName;
+          saveWatchlistsState();
+          renderWatchlistSelector();
+          renderActiveWatchlist();
+        }
+      };
+    }
+
+    if (deleteBtn) {
+      deleteBtn.onclick = () => {
+        const keys = Object.keys(watchlists);
+        if (keys.length <= 1) {
+          alert("You must keep at least one watchlist.");
+          return;
+        }
+        if (confirm(`Are you sure you want to delete the watchlist "${activeWatchlistName}"?`)) {
+          delete watchlists[activeWatchlistName];
+          activeWatchlistName = Object.keys(watchlists)[0];
+          saveWatchlistsState();
+          renderWatchlistSelector();
+          renderActiveWatchlist();
+        }
+      };
+    }
 
     const addSectionBtn = document.getElementById('add-section-btn');
     if (addSectionBtn) {
       addSectionBtn.onclick = () => {
-        const title = prompt("Enter section name:", "### NEW SECTION");
-        if (title) {
-          watchlists.default.push({ type: 'section', title: title.toUpperCase() });
-          renderWatchlist();
+        const title = prompt("Enter section header name:", "### NEW SECTION");
+        if (title && watchlists[activeWatchlistName]) {
+          watchlists[activeWatchlistName].push({ type: 'section', title: title.toUpperCase() });
+          saveWatchlistsState();
+          renderActiveWatchlist();
         }
       };
     }
@@ -560,12 +668,25 @@
     if (addTickerBtn) {
       addTickerBtn.onclick = () => {
         const sym = prompt("Enter Yahoo ticker symbol (e.g., AAPL, MSFT, BTC-USD):");
-        if (sym) {
-          watchlists.default.push({ type: 'ticker', symbol: sym.toUpperCase(), name: sym.toUpperCase() });
-          renderWatchlist();
+        if (sym && watchlists[activeWatchlistName]) {
+          const upper = sym.toUpperCase().trim();
+          watchlists[activeWatchlistName].push({ type: 'ticker', symbol: upper, name: upper });
+          saveWatchlistsState();
+          renderActiveWatchlist();
         }
       };
     }
+  }
+
+  // Safely attach event listeners after DOM elements are fully loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    initCharts();
+    renderWatchlistSelector();
+    renderActiveWatchlist();
+    setupWatchlistControls();
+
+    const symbolDisplay = document.getElementById('symbol-display');
+    if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
 
     // Initial data fetch using stored state
     loadData(currentSymbol, currentTimeframe);
