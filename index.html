@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QuantEngine - Stock & Crypto Charting</title>
+  <title>QuantView - Stock, ETF & Crypto Charting</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
@@ -57,7 +57,7 @@
   <div class="flex items-center space-x-4">
     <div class="flex items-center space-x-2 font-bold text-lg text-white">
       <span class="text-blue-500">❖</span>
-      <span>QuantEngine</span>
+      <span>QuantView</span>
     </div>
     <div class="h-4 w-[1px] bg-[#363c4e]"></div>
 
@@ -108,7 +108,7 @@
         <div><span class="text-gray-400">7Y CAGR:</span> <span id="m-7y" class="font-bold text-white">--</span></div>
         <div><span class="text-gray-400">10Y CAGR:</span> <span id="m-10y" class="font-bold text-white">--</span></div>
         <div><span class="text-gray-400">Pivot DD:</span> <span id="m-pdd" class="font-bold text-pink-500">--</span></div>
-        <div><span class="text-gray-400">ATH DD:</span> <span id="m-athdd" class="font-bold text-pink-500">--</span></div>
+        <div><span class="text-gray-400">10YH DD:</span> <span id="m-athdd" class="font-bold text-pink-500">--</span></div>
         <div><span class="text-gray-400">ATR%:</span> <span id="m-atr" class="font-bold text-amber-400">--</span></div>
       </div>
     </div>
@@ -170,8 +170,8 @@
   const TIMEFRAME_MAP = {
     '1d': { range: '10y', interval: '1d', label: '1D' },
     '1w': { range: '10y', interval: '1wk', label: '1W' },
-    '1M': { range: 'max', interval: '1mo', label: '1M' },
-    '3M': { range: 'max', interval: '3mo', label: '3M' }
+    '1M': { range: '10y', interval: '1mo', label: '1M' },
+    '3M': { range: '10y', interval: '3mo', label: '3M' }
   };
 
   const DEFAULT_WATCHLISTS = {
