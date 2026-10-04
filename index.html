@@ -161,7 +161,10 @@
 <!-- JavaScript Engine -->
 <script>
   // 1. CONFIGURATION & PERSISTENT STATE
-  const WORKER_URL = "https://stock-proxy.vinodsrao.workers.dev";
+  // Auto-use local Worker when frontend is served from localhost.
+  const WORKER_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:8787'
+    : 'https://stock-proxy.vinodsrao.workers.dev';
   let currentSymbol = localStorage.getItem('quantview_symbol') || 'AAPL';
   let currentTimeframe = localStorage.getItem('quantview_tf') || '1d';
   let chartData = [];
@@ -174,27 +177,57 @@
     '3M': { range: '10y', interval: '3mo', label: '3M' }
   };
 
-  const DEFAULT_WATCHLISTS = {
-    "Tech & Crypto": [
-      { type: 'section', title: '### STOCKS' },
-      { type: 'ticker', symbol: 'AAPL' },
-      { type: 'ticker', symbol: 'PH' },
-      { type: 'ticker', symbol: 'AXISCADES.NS' },
-      { type: 'ticker', symbol: 'TVSMOTOR.NS' },
-      { type: 'ticker', symbol: 'TSLA' },
-      { type: 'ticker', symbol: 'NVDA' },
-      { type: 'section', title: '### CRYPTO' },
-      { type: 'ticker', symbol: 'BTC-USD' },
-      { type: 'ticker', symbol: 'ETH-USD' }
-    ]
-  };
+  // Watchlist contents live in Cloudflare D1 (server-side). Only UI prefs
+  // (active id, symbol, timeframe) stay in localStorage.
+  // Default seed is inserted by the Worker on first GET /api/watchlists.
+  let watchlists = [];
+  let activeWatchlistId = localStorage.getItem('quantview_active_watchlist_id')
+    ? Number(localStorage.getItem('quantview_active_watchlist_id'))
+    : null;
+  let watchlistsLoading = false;
 
-  let watchlists = JSON.parse(localStorage.getItem('quantview_watchlists')) || DEFAULT_WATCHLISTS;
-  let activeWatchlistName = localStorage.getItem('quantview_active_watchlist') || Object.keys(watchlists)[0] || "Tech & Crypto";
+  function getActiveWatchlist() {
+    return watchlists.find(w => w.id === activeWatchlistId) || watchlists[0] || null;
+  }
 
-  function saveWatchlistsState() {
-    localStorage.setItem('quantview_watchlists', JSON.stringify(watchlists));
-    localStorage.setItem('quantview_active_watchlist', activeWatchlistName);
+  function saveActiveWatchlistId() {
+    if (activeWatchlistId != null) {
+      localStorage.setItem('quantview_active_watchlist_id', String(activeWatchlistId));
+    }
+  }
+
+  async function watchlistApi(path, method = 'GET', body) {
+    const res = await fetch(`${WORKER_URL}/api${path}`, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Watchlist API error (${res.status})`);
+    return data;
+  }
+
+  async function loadWatchlists() {
+    watchlistsLoading = true;
+    try {
+      watchlists = await watchlistApi('/watchlists', 'GET');
+      if (!watchlists.length) throw new Error('No watchlists returned from server');
+      if (!watchlists.some(w => w.id === activeWatchlistId)) {
+        activeWatchlistId = watchlists[0].id;
+        saveActiveWatchlistId();
+      }
+    } catch (err) {
+      console.error('Failed to load watchlists from D1:', err);
+      const container = document.getElementById('watchlist-items');
+      if (container && !watchlists.length) {
+        container.innerHTML = `<div class="p-3 text-xs text-red-400">Watchlist DB unavailable: ${err.message}<br/>Check Worker D1 binding + migrations.</div>`;
+      }
+      throw err;
+    } finally {
+      watchlistsLoading = false;
+    }
+    renderWatchlistSelector();
+    renderActiveWatchlist();
   }
 
   // Universal Candle Normalization Across All Timeframes
@@ -612,19 +645,19 @@
     }
   }
 
-  // 5. WATCHLIST ENGINE
-  let draggedIndex = null;
+  // 5. WATCHLIST ENGINE (Cloudflare D1-backed)
+  let draggedItemId = null;
 
   function renderWatchlistSelector() {
     const select = document.getElementById('watchlist-select');
     if (!select) return;
     select.innerHTML = '';
 
-    Object.keys(watchlists).forEach(wlName => {
+    watchlists.forEach(wl => {
       const option = document.createElement('option');
-      option.value = wlName;
-      option.innerText = wlName;
-      if (wlName === activeWatchlistName) option.selected = true;
+      option.value = String(wl.id);
+      option.innerText = wl.name;
+      if (wl.id === activeWatchlistId) option.selected = true;
       select.appendChild(option);
     });
   }
@@ -634,19 +667,27 @@
     if (!container) return;
     container.innerHTML = '';
 
-    const items = watchlists[activeWatchlistName] || [];
+    const active = getActiveWatchlist();
+    if (!active) {
+      container.innerHTML = '<div class="p-3 text-xs text-gray-500">No watchlists yet. Create one with +.</div>';
+      return;
+    }
+    const items = active.items || [];
 
-    items.forEach((item, idx) => {
+    items.forEach((item) => {
       const div = document.createElement('div');
       div.setAttribute('draggable', 'true');
-      div.setAttribute('data-index', idx);
+      div.setAttribute('data-id', String(item.id));
 
       if (item.type === 'section') {
         div.className = 'text-[11px] font-bold text-gray-400 pt-3 pb-1 px-2 border-b border-[#2a2e39] flex justify-between items-center cursor-grab active:cursor-grabbing transition-all border-t-2 border-t-transparent';
-        div.innerHTML = `
-          <span>${item.title}</span>
-          <button onclick="event.stopPropagation(); removeWatchlistItem(${idx})" class="text-gray-500 hover:text-red-400">×</button>
-        `;
+        const span = document.createElement('span');
+        span.textContent = item.title || '';
+        const btn = document.createElement('button');
+        btn.className = 'text-gray-500 hover:text-red-400';
+        btn.textContent = '×';
+        btn.onclick = (e) => { e.stopPropagation(); removeWatchlistItem(item.id); };
+        div.append(span, btn);
       } else {
         div.className = `p-2 rounded flex justify-between items-center cursor-grab active:cursor-grabbing hover:bg-[#2a2e39] transition-all border-t-2 border-t-transparent ${
           item.symbol === currentSymbol ? 'bg-[#2a2e39] border-l-2 border-l-blue-500' : ''
@@ -659,22 +700,27 @@
           renderActiveWatchlist();
         };
 
-        div.innerHTML = `
-          <div class="pointer-events-none">
-            <div class="font-bold text-xs text-white">${item.symbol}</div>
-          </div>
-          <button onclick="event.stopPropagation(); removeWatchlistItem(${idx})" class="text-gray-500 hover:text-red-400 text-xs">×</button>
-        `;
+        const wrap = document.createElement('div');
+        wrap.className = 'pointer-events-none';
+        const sym = document.createElement('div');
+        sym.className = 'font-bold text-xs text-white';
+        sym.textContent = item.symbol || '';
+        wrap.appendChild(sym);
+        const btn = document.createElement('button');
+        btn.className = 'text-gray-500 hover:text-red-400 text-xs';
+        btn.textContent = '×';
+        btn.onclick = (e) => { e.stopPropagation(); removeWatchlistItem(item.id); };
+        div.append(wrap, btn);
       }
 
       div.addEventListener('dragstart', (e) => {
-        draggedIndex = idx;
+        draggedItemId = item.id;
         e.dataTransfer.effectAllowed = 'move';
         div.classList.add('opacity-40');
       });
 
       div.addEventListener('dragend', () => {
-        draggedIndex = null;
+        draggedItemId = null;
         div.classList.remove('opacity-40');
         clearDropIndicators();
       });
@@ -690,20 +736,14 @@
         div.classList.remove('border-t-blue-500');
       });
 
-      div.addEventListener('drop', (e) => {
+      div.addEventListener('drop', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         clearDropIndicators();
 
-        const targetIndex = parseInt(div.getAttribute('data-index'), 10);
-        if (draggedIndex === null || draggedIndex === targetIndex) return;
-
-        const list = watchlists[activeWatchlistName];
-        const [movedItem] = list.splice(draggedIndex, 1);
-        list.splice(targetIndex, 0, movedItem);
-
-        saveWatchlistsState();
-        renderActiveWatchlist();
+        const targetId = Number(div.getAttribute('data-id'));
+        if (draggedItemId === null || draggedItemId === targetId) return;
+        await moveWatchlistItem(draggedItemId, targetId);
       });
 
       container.appendChild(div);
@@ -718,13 +758,39 @@
     });
   }
 
-  function removeWatchlistItem(idx) {
-    if (watchlists[activeWatchlistName]) {
-      watchlists[activeWatchlistName].splice(idx, 1);
-      saveWatchlistsState();
-      renderActiveWatchlist();
+  async function moveWatchlistItem(draggedId, targetId) {
+    const active = getActiveWatchlist();
+    if (!active) return;
+    const ids = (active.items || []).map(i => i.id);
+    const from = ids.indexOf(draggedId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    // Optimistic reorder
+    active.items.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    renderActiveWatchlist();
+    try {
+      await watchlistApi(`/watchlists/${active.id}/items/order`, 'PUT', { orderedIds: ids });
+      await loadWatchlists();
+    } catch (err) {
+      console.error('Reorder failed:', err);
+      await loadWatchlists();
     }
   }
+
+  async function removeWatchlistItem(itemId) {
+    const active = getActiveWatchlist();
+    if (!active) return;
+    try {
+      await watchlistApi(`/watchlists/${active.id}/items/${itemId}`, 'DELETE');
+      await loadWatchlists();
+    } catch (err) {
+      console.error('Delete item failed:', err);
+      alert(`Could not delete symbol: ${err.message}`);
+    }
+  }
+  // Exposed for any legacy inline handlers (now using addEventListener, kept for safety)
+  window.removeWatchlistItem = removeWatchlistItem;
 
   function setupWatchlistControls() {
     const select = document.getElementById('watchlist-select');
@@ -734,98 +800,113 @@
 
     if (select) {
       select.onchange = (e) => {
-        activeWatchlistName = e.target.value;
-        saveWatchlistsState();
+        activeWatchlistId = Number(e.target.value);
+        saveActiveWatchlistId();
         renderActiveWatchlist();
       };
     }
 
     if (newBtn) {
-      newBtn.onclick = () => {
+      newBtn.onclick = async () => {
         const name = prompt("Enter new watchlist name:");
         if (name && name.trim()) {
-          const cleanName = name.trim();
-          if (!watchlists[cleanName]) {
-            watchlists[cleanName] = [];
-            activeWatchlistName = cleanName;
-            saveWatchlistsState();
-            renderWatchlistSelector();
-            renderActiveWatchlist();
-          } else {
-            alert("A watchlist with that name already exists!");
+          try {
+            const created = await watchlistApi('/watchlists', 'POST', { name: name.trim() });
+            activeWatchlistId = created.id;
+            saveActiveWatchlistId();
+            await loadWatchlists();
+          } catch (err) {
+            alert(err.message);
           }
         }
       };
     }
 
     if (renameBtn) {
-      renameBtn.onclick = () => {
-        const newName = prompt(`Rename watchlist "${activeWatchlistName}" to:`, activeWatchlistName);
-        if (newName && newName.trim() && newName.trim() !== activeWatchlistName) {
-          const cleanName = newName.trim();
-          watchlists[cleanName] = watchlists[activeWatchlistName];
-          delete watchlists[activeWatchlistName];
-          activeWatchlistName = cleanName;
-          saveWatchlistsState();
-          renderWatchlistSelector();
-          renderActiveWatchlist();
+      renameBtn.onclick = async () => {
+        const active = getActiveWatchlist();
+        if (!active) return;
+        const newName = prompt(`Rename watchlist "${active.name}" to:`, active.name);
+        if (newName && newName.trim() && newName.trim() !== active.name) {
+          try {
+            await watchlistApi(`/watchlists/${active.id}`, 'PUT', { name: newName.trim() });
+            await loadWatchlists();
+          } catch (err) {
+            alert(err.message);
+          }
         }
       };
     }
 
     if (deleteBtn) {
-      deleteBtn.onclick = () => {
-        const keys = Object.keys(watchlists);
-        if (keys.length <= 1) {
+      deleteBtn.onclick = async () => {
+        const active = getActiveWatchlist();
+        if (!active) return;
+        if (watchlists.length <= 1) {
           alert("You must keep at least one watchlist.");
           return;
         }
-        if (confirm(`Are you sure you want to delete the watchlist "${activeWatchlistName}"?`)) {
-          delete watchlists[activeWatchlistName];
-          activeWatchlistName = Object.keys(watchlists)[0];
-          saveWatchlistsState();
-          renderWatchlistSelector();
-          renderActiveWatchlist();
+        if (confirm(`Are you sure you want to delete the watchlist "${active.name}"?`)) {
+          try {
+            await watchlistApi(`/watchlists/${active.id}`, 'DELETE');
+            activeWatchlistId = null;
+            await loadWatchlists();
+          } catch (err) {
+            alert(err.message);
+          }
         }
       };
     }
 
     const addSectionBtn = document.getElementById('add-section-btn');
     if (addSectionBtn) {
-      addSectionBtn.onclick = () => {
+      addSectionBtn.onclick = async () => {
+        const active = getActiveWatchlist();
+        if (!active) return;
         const title = prompt("Enter section header name:", "### NEW SECTION");
-        if (title && watchlists[activeWatchlistName]) {
-          watchlists[activeWatchlistName].push({ type: 'section', title: title.toUpperCase() });
-          saveWatchlistsState();
-          renderActiveWatchlist();
+        if (title) {
+          try {
+            await watchlistApi(`/watchlists/${active.id}/items`, 'POST', { type: 'section', title });
+            await loadWatchlists();
+          } catch (err) {
+            alert(err.message);
+          }
         }
       };
     }
 
     const addTickerBtn = document.getElementById('add-ticker-btn');
     if (addTickerBtn) {
-      addTickerBtn.onclick = () => {
+      addTickerBtn.onclick = async () => {
+        const active = getActiveWatchlist();
+        if (!active) return;
         const sym = prompt("Enter Yahoo ticker symbol (e.g., AAPL, PH, TVSMOTOR.NS, BTC-USD):");
-        if (sym && watchlists[activeWatchlistName]) {
-          const upper = sym.toUpperCase().trim();
-          watchlists[activeWatchlistName].push({ type: 'ticker', symbol: upper });
-          saveWatchlistsState();
-          renderActiveWatchlist();
+        if (sym && sym.trim()) {
+          try {
+            await watchlistApi(`/watchlists/${active.id}/items`, 'POST', { type: 'ticker', symbol: sym.trim() });
+            await loadWatchlists();
+          } catch (err) {
+            alert(err.message);
+          }
         }
       };
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     initCharts();
-    renderWatchlistSelector();
-    renderActiveWatchlist();
     setupWatchlistControls();
 
     const symbolDisplay = document.getElementById('symbol-display');
     if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
 
     loadData(currentSymbol, currentTimeframe);
+    try {
+      await loadWatchlists();
+    } catch {
+      renderWatchlistSelector();
+      renderActiveWatchlist();
+    }
   });
 </script>
 </body>

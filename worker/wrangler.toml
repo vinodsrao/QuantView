@@ -1,3 +1,13 @@
 name = "stock-proxy"
 main = "index.js"
 compatibility_date = "2026-01-01"
+
+# Serverless SQLite (D1) for watchlists.
+# 1. Create once:  npx wrangler d1 create quantview-db
+# 2. Copy the returned `database_id` below.
+# 3. Apply schema: npx wrangler d1 migrations apply quantview-db --remote
+[[d1_databases]]
+binding = "DB"
+database_name = "quantview-db"
+database_id = "7bb5d392-a537-4ccb-a857-f3bafc5925fa"
+migrations_dir = "migrations"
