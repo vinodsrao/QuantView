@@ -107,8 +107,8 @@
         <div><span class="text-gray-400">5Y CAGR:</span> <span id="m-5y" class="font-bold text-white">--</span></div>
         <div><span class="text-gray-400">7Y CAGR:</span> <span id="m-7y" class="font-bold text-white">--</span></div>
         <div><span class="text-gray-400">10Y CAGR:</span> <span id="m-10y" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">Pivot DD:</span> <span id="m-pdd" class="font-bold text-pink-500">--</span></div>
-        <div><span class="text-gray-400">10YH DD:</span> <span id="m-athdd" class="font-bold text-pink-500">--</span></div>
+        <div><span class="text-gray-400">Pivot DD:</span> <span id="m-pdd" class="font-bold text-[#f5279c]">--</span></div>
+        <div><span class="text-gray-400">10YH DD:</span> <span id="m-athdd" class="font-bold text-[#f5279c]">--</span></div>
         <div><span class="text-gray-400">ATR%:</span> <span id="m-atr" class="font-bold text-amber-400">--</span></div>
       </div>
     </div>
@@ -511,13 +511,34 @@
       bar.signalTag === 'CHURN' ? 'bg-blue-900/80 text-blue-300' : 'bg-gray-800 text-gray-400'
     }`;
 
-    document.getElementById('m-1y').innerText = bar.ret1y;
-    document.getElementById('m-3y').innerText = bar.cagr3y;
-    document.getElementById('m-5y').innerText = bar.cagr5y;
-    document.getElementById('m-7y').innerText = bar.cagr7y;
-    document.getElementById('m-10y').innerText = bar.cagr10y;
-    document.getElementById('m-pdd').innerText = bar.pivotDD;
-    document.getElementById('m-athdd').innerText = bar.athDD;
+    // Neon candle colors: ACCUMULATION rgba(156,245,39) / DISTRIBUTION rgba(245,39,156)
+    const NEON_GREEN = '#9cf527';
+    const NEON_PINK = '#f5279c';
+    function setReturnColor(elId, val) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.innerText = val;
+      const num = parseFloat(val);
+      if (val === '--' || isNaN(num) || num === 0) {
+        el.style.color = '';
+        el.classList.remove('text-white');
+        el.classList.add('text-gray-400');
+      } else if (num > 0) {
+        el.classList.remove('text-white', 'text-gray-400');
+        el.style.color = NEON_GREEN;
+      } else {
+        el.classList.remove('text-white', 'text-gray-400');
+        el.style.color = NEON_PINK;
+      }
+    }
+
+    setReturnColor('m-1y', bar.ret1y);
+    setReturnColor('m-3y', bar.cagr3y);
+    setReturnColor('m-5y', bar.cagr5y);
+    setReturnColor('m-7y', bar.cagr7y);
+    setReturnColor('m-10y', bar.cagr10y);
+    setReturnColor('m-pdd', bar.pivotDD);
+    setReturnColor('m-athdd', bar.athDD);
     document.getElementById('m-atr').innerText = bar.atrPct + '%';
   }
 
