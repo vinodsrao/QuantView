@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QuantView - Stock, Bonds & Crypto Charting</title>
+  <title>QuantView - Stock, Bond & Crypto Charting</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
@@ -55,7 +55,6 @@
 <!-- Header Navigation Bar -->
 <header class="h-12 border-b border-[#2a2e39] bg-[#1e222d] flex items-center justify-between px-4 z-10 shrink-0">
   <div class="flex items-center space-x-4">
-    <!-- Updated App Name / Branding -->
     <div class="flex items-center space-x-2 font-bold text-lg text-white">
       <span class="text-blue-500">❖</span>
       <span>QuantView</span>
@@ -66,8 +65,7 @@
     <div class="flex items-center space-x-2">
       <span id="symbol-display" class="font-semibold text-white text-base">AAPL</span>
       <span id="data-source-badge"
-            class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 border border-green-700/50 font-mono">PROXY
-          LIVE</span>
+            class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 border border-green-700/50 font-mono">PROXY LIVE</span>
     </div>
 
     <!-- Timeframe Buttons -->
@@ -78,6 +76,8 @@
               data-tf="1w">1W</button>
       <button class="tf-btn px-2.5 py-1 text-xs rounded font-medium hover:bg-[#2a2e39] text-gray-400"
               data-tf="1M">1M</button>
+      <button class="tf-btn px-2.5 py-1 text-xs rounded font-medium hover:bg-[#2a2e39] text-gray-400"
+              data-tf="3M">3M</button>
     </div>
   </div>
 
@@ -99,21 +99,16 @@
   <!-- Chart Column -->
   <div class="flex-1 flex flex-col overflow-hidden bg-[#131722] border-r border-[#2a2e39]">
 
-    <!-- Top Performance Bar -->
-    <div
-            class="h-9 border-b border-[#2a2e39] bg-[#1a1e29] px-4 flex items-center justify-between text-xs font-mono overflow-x-auto whitespace-nowrap shrink-0">
+    <!-- Top Technical Performance Bar -->
+    <div class="h-8 border-b border-[#2a2e39] bg-[#1a1e29] px-4 flex items-center justify-between text-xs font-mono overflow-x-auto whitespace-nowrap shrink-0">
       <div class="flex items-center space-x-4">
         <div><span class="text-gray-400">1Y Ret:</span> <span id="m-1y" class="font-bold text-white">--</span></div>
         <div><span class="text-gray-400">3Y CAGR:</span> <span id="m-3y" class="font-bold text-white">--</span></div>
         <div><span class="text-gray-400">5Y CAGR:</span> <span id="m-5y" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">10Y CAGR:</span> <span id="m-10y" class="font-bold text-white">--</span>
-        </div>
-        <div><span class="text-gray-400">Pivot DD:</span> <span id="m-pdd" class="font-bold text-pink-500">--</span>
-        </div>
-        <div><span class="text-gray-400">ATH DD:</span> <span id="m-athdd" class="font-bold text-pink-500">--</span>
-        </div>
-        <div><span class="text-gray-400">ATR%:</span> <span id="m-atr" class="font-bold text-amber-400">--</span>
-        </div>
+        <div><span class="text-gray-400">10Y CAGR:</span> <span id="m-10y" class="font-bold text-white">--</span></div>
+        <div><span class="text-gray-400">Pivot DD:</span> <span id="m-pdd" class="font-bold text-pink-500">--</span></div>
+        <div><span class="text-gray-400">ATH DD:</span> <span id="m-athdd" class="font-bold text-pink-500">--</span></div>
+        <div><span class="text-gray-400">ATR%:</span> <span id="m-atr" class="font-bold text-amber-400">--</span></div>
       </div>
     </div>
 
@@ -172,15 +167,17 @@
   let priceChart, volumeChart, candleSeries, volumeSeries;
 
   const TIMEFRAME_MAP = {
-    '1d': { range: '10y', interval: '1d' },
-    '1w': { range: '10y', interval: '1wk' },
-    '1M': { range: 'max', interval: '1mo' }
+    '1d': { range: '10y', interval: '1d', label: '1D' },
+    '1w': { range: '10y', interval: '1wk', label: '1W' },
+    '1M': { range: 'max', interval: '1mo', label: '1M' },
+    '3M': { range: 'max', interval: '3mo', label: '3M' }
   };
 
   const DEFAULT_WATCHLISTS = {
     "Tech & Crypto": [
       { type: 'section', title: '### STOCKS' },
       { type: 'ticker', symbol: 'AAPL' },
+      { type: 'ticker', symbol: 'PH' },
       { type: 'ticker', symbol: 'AXISCADES.NS' },
       { type: 'ticker', symbol: 'TVSMOTOR.NS' },
       { type: 'ticker', symbol: 'TSLA' },
@@ -199,13 +196,40 @@
     localStorage.setItem('quantview_active_watchlist', activeWatchlistName);
   }
 
-  // Timezone & Timestamp Normalization Engine
+  // Universal Candle Normalization Across All Timeframes
   function normalizeTimestamp(timeInSeconds, timeframeKey) {
-    if (timeframeKey === '1M') {
-      const date = new Date((timeInSeconds + 43200) * 1000);
-      return Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000);
+    const date = new Date((timeInSeconds + 43200) * 1000);
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+
+    if (timeframeKey === '1w') {
+      const day = date.getUTCDay();
+      const diffToMonday = (day === 0 ? -6 : 1 - day);
+      const monday = new Date(date);
+      monday.setUTCDate(date.getUTCDate() + diffToMonday);
+      return Math.floor(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate()) / 1000);
     }
+
+    if (timeframeKey === '1M') {
+      return Math.floor(Date.UTC(year, month, 1) / 1000);
+    }
+
+    if (timeframeKey === '3M') {
+      const quarterStartMonth = Math.floor(month / 3) * 3;
+      return Math.floor(Date.UTC(year, quarterStartMonth, 1) / 1000);
+    }
+
     return timeInSeconds;
+  }
+
+  function formatGranularityLabel(granularity) {
+    if (!granularity) return '';
+    const g = granularity.toLowerCase();
+    if (g === '1d' || g === '1day') return '1D';
+    if (g === '1wk' || g === '1week') return '1W';
+    if (g === '1mo' || g === '1month') return '1M';
+    if (g === '3mo' || g === '3month') return '3M';
+    return g.toUpperCase();
   }
 
   // 2. PINE SCRIPT MATH ENGINE
@@ -213,6 +237,7 @@
     if (timeframeKey === '1d') return 21;
     if (timeframeKey === '1w') return 52;
     if (timeframeKey === '1M') return 12;
+    if (timeframeKey === '3M') return 4;
     return 21;
   }
 
@@ -242,13 +267,11 @@
     }
 
     return data.map((bar, i) => {
-      // Average Volume & Standard Deviation
       const sliceVol = volumes.slice(Math.max(0, i - len + 1), i + 1);
       const avgVol = sliceVol.reduce((a, b) => a + b, 0) / sliceVol.length;
       const variance = sliceVol.reduce((a, b) => a + Math.pow(b - avgVol, 2), 0) / sliceVol.length;
       const stdVol = Math.sqrt(variance) || 0.0001;
 
-      // True Range & ATR
       let trSum = 0;
       const start = Math.max(0, i - len + 1);
       for (let j = start; j <= i; j++) {
@@ -262,7 +285,6 @@
       }
       const atr = trSum / (i - start + 1);
 
-      // Signal Metrics
       const mintick = 0.0001;
       const zScore = (bar.volume - avgVol) / Math.max(stdVol, mintick);
       const vRatio = bar.volume / Math.max(avgVol, 1);
@@ -271,13 +293,11 @@
       const pChg = i > 0 ? bar.close - data[i - 1].close : 0;
       const pMoveInten = Math.abs(pChg) / Math.max(atr, mintick);
 
-      // Signal Conditions
       const prevClose = i > 0 ? data[i - 1].close : bar.open;
       const isChurn = zScore > zThreshold && pMoveInten < 0.3;
       const isAccu = zScore > zThreshold && !isChurn && pChg > (-0.5 * atr) && ((bar.close > prevClose && clv > 0.4) || clv > 0.8);
       const isDist = zScore > zThreshold && !isChurn && (pChg < -atr || (bar.close < prevClose && clv < 0.6) || clv < 0.2);
 
-      // Intensity Alpha Calculations
       const decay = 1.0;
       const basePower = vRatio * pMoveInten * decay;
       const powerAccu = basePower * clv;
@@ -289,7 +309,6 @@
       const accuAlpha = (100 - accuTransp) / 100;
       const distAlpha = (100 - distTransp) / 100;
 
-      // Monochromatic Theme & Signal Colors
       const isBullish = bar.close >= bar.open;
       let color = isBullish ? '#b2b5be' : '#4c525e';
       let wickColor = isBullish ? '#b2b5be' : '#848b9a';
@@ -313,7 +332,6 @@
         signalTag = 'DISTRIBUTION';
       }
 
-      // Performance & Drawdowns
       const bar1y = findBarAtTime(bar.time - (365.25 * 86400));
       const bar3y = findBarAtTime(bar.time - (3 * 365.25 * 86400));
       const bar5y = findBarAtTime(bar.time - (5 * 365.25 * 86400));
@@ -361,20 +379,27 @@
     const pHeight = priceContainer.clientHeight || 400;
     const vHeight = volumeContainer.clientHeight || 128;
 
-    const baseOptions = {
+    priceChart = LightweightCharts.createChart(priceContainer, {
       layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-      timeScale: { rightOffset: 5, barSpacing: 10 }
-    };
-
-    priceChart = LightweightCharts.createChart(priceContainer, {
-      ...baseOptions,
+      timeScale: { rightOffset: 5, barSpacing: 10 },
       height: pHeight,
-      rightPriceScale: { minimumWidth: 75, mode: 1 }
+      rightPriceScale: { minimumWidth: 75, mode: 1 },
+      watermark: {
+        visible: true,
+        fontSize: 100,
+        horzAlign: 'center',
+        vertAlign: 'center',
+        color: 'rgba(255, 255, 255, 0.06)',
+        text: currentSymbol + ' • ' + (TIMEFRAME_MAP[currentTimeframe]?.label || '1D'),
+        fontFamily: 'sans-serif'
+      }
     });
 
     volumeChart = LightweightCharts.createChart(volumeContainer, {
-      ...baseOptions,
+      layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
+      grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
+      timeScale: { rightOffset: 5, barSpacing: 10 },
       height: vHeight,
       rightPriceScale: { minimumWidth: 75, mode: 0 }
     });
@@ -458,7 +483,7 @@
     document.getElementById('m-atr').innerText = bar.atrPct + '%';
   }
 
-  // 4. DATA FETCHING & DEDUPLICATION ENGINE
+  // 4. DATA FETCHING ENGINE & YAHOO METADATA WATERMARK
   async function loadData(symbol, tfKey = '1d') {
     const tfConfig = TIMEFRAME_MAP[tfKey] || TIMEFRAME_MAP['1d'];
     const badge = document.getElementById('data-source-badge');
@@ -477,6 +502,27 @@
 
       const data = await response.json();
       const result = data.chart.result[0];
+      const meta = result.meta || {};
+
+      // Dynamic Watermark Derived Directly from Yahoo Payload
+      const returnedSymbol = meta.symbol || symbol;
+      const returnedGranularity = meta.dataGranularity || meta.granularity || tfConfig.interval;
+      const periodLabel = formatGranularityLabel(returnedGranularity);
+
+      if (priceChart) {
+        priceChart.applyOptions({
+          watermark: {
+            visible: true,
+            text: `${returnedSymbol} • ${periodLabel}`,
+            color: 'rgba(255, 255, 255, 0.06)',
+            fontSize: 100,
+            horzAlign: 'center',
+            vertAlign: 'center',
+            fontFamily: 'sans-serif'
+          }
+        });
+      }
+
       const timestamps = result.timestamp || [];
       const quote = result.indicators.quote[0];
 
@@ -537,6 +583,7 @@
         let visibleCount = 120;
         if (tfKey === '1w') visibleCount = 52;
         if (tfKey === '1M') visibleCount = 48;
+        if (tfKey === '3M') visibleCount = 20;
 
         const logicalRange = {
           from: totalBars - Math.min(totalBars, visibleCount),
@@ -561,7 +608,7 @@
     }
   }
 
-  // 5. MULTIPLE WATCHLISTS ENGINE (WITH DRAG & DROP)
+  // 5. WATCHLIST ENGINE
   let draggedIndex = null;
 
   function renderWatchlistSelector() {
@@ -608,7 +655,6 @@
           renderActiveWatchlist();
         };
 
-        // Streamlined: Display Ticker Only
         div.innerHTML = `
           <div class="pointer-events-none">
             <div class="font-bold text-xs text-white">${item.symbol}</div>
@@ -617,7 +663,6 @@
         `;
       }
 
-      // Drag and Drop Handlers
       div.addEventListener('dragstart', (e) => {
         draggedIndex = idx;
         e.dataTransfer.effectAllowed = 'move';
@@ -756,7 +801,7 @@
     const addTickerBtn = document.getElementById('add-ticker-btn');
     if (addTickerBtn) {
       addTickerBtn.onclick = () => {
-        const sym = prompt("Enter Yahoo ticker symbol (e.g., AAPL, TVSMOTOR.NS, BTC-USD):");
+        const sym = prompt("Enter Yahoo ticker symbol (e.g., AAPL, PH, TVSMOTOR.NS, BTC-USD):");
         if (sym && watchlists[activeWatchlistName]) {
           const upper = sym.toUpperCase().trim();
           watchlists[activeWatchlistName].push({ type: 'ticker', symbol: upper });
