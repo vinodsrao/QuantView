@@ -64,6 +64,7 @@
     <!-- Symbol Header & Selector -->
     <div class="flex items-center space-x-2">
       <span id="symbol-display" class="font-semibold text-white text-base">AAPL</span>
+      <span id="symbol-name" class="text-xs text-gray-400 truncate max-w-[300px]">--</span>
       <span id="data-source-badge"
             class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 border border-green-700/50 font-mono">PROXY LIVE</span>
     </div>
@@ -546,6 +547,10 @@
   async function loadData(symbol, tfKey = '1d') {
     const tfConfig = TIMEFRAME_MAP[tfKey] || TIMEFRAME_MAP['1d'];
     const badge = document.getElementById('data-source-badge');
+    const symbolDisplayPre = document.getElementById('symbol-display');
+    if (symbolDisplayPre) symbolDisplayPre.innerText = symbol;
+    const symbolNamePre = document.getElementById('symbol-name');
+    if (symbolNamePre) symbolNamePre.innerText = '…';
     if (badge) {
       badge.innerText = 'PROXY FETCHING...';
       badge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-400 border border-amber-700/50 font-mono';
@@ -564,8 +569,14 @@
       const meta = result.meta || {};
 
       const returnedSymbol = meta.symbol || symbol;
+      const shortName = meta.shortName || meta.longName || '';
       const returnedGranularity = meta.dataGranularity || meta.granularity || tfConfig.interval;
       const periodLabel = formatGranularityLabel(returnedGranularity);
+
+      const symbolDisplay = document.getElementById('symbol-display');
+      if (symbolDisplay) symbolDisplay.innerText = returnedSymbol;
+      const symbolName = document.getElementById('symbol-name');
+      if (symbolName) symbolName.innerText = shortName || '--';
 
       if (priceChart) {
         priceChart.applyOptions({
