@@ -111,6 +111,7 @@
         <div><span class="text-gray-400">Pivot DD:</span> <span id="m-pdd" class="font-bold text-[#f5279c]">--</span></div>
         <div><span class="text-gray-400">10YH DD:</span> <span id="m-athdd" class="font-bold text-[#f5279c]">--</span></div>
         <div><span class="text-gray-400">ATR%:</span> <span id="m-atr" class="font-bold text-amber-400">--</span></div>
+        <div><span class="text-gray-400">Chg:</span> <span id="m-chg" class="font-bold text-white">--</span></div>
       </div>
     </div>
 
@@ -389,6 +390,9 @@
       }
       const pivotDD = pivotPeak > 0 ? ((bar.close - pivotPeak) / pivotPeak) * 100 : 0;
 
+      const prevCloseForChg = i > 0 ? data[i - 1].close : null;
+      const chg = prevCloseForChg ? ((bar.close - prevCloseForChg) / prevCloseForChg) * 100 : NaN;
+
       return {
         ...bar,
         color,
@@ -396,6 +400,7 @@
         borderColor,
         signalTag,
         atrPct: ((atr / bar.close) * 100).toFixed(2),
+        chg: isNaN(chg) ? '--' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
         ret1y: isNaN(ret1y) ? '--' : ret1y.toFixed(1) + '%',
         cagr3y: isNaN(cagr3y) ? '--' : cagr3y.toFixed(1) + '%',
         cagr5y: isNaN(cagr5y) ? '--' : cagr5y.toFixed(1) + '%',
@@ -541,6 +546,7 @@
     setReturnColor('m-pdd', bar.pivotDD);
     setReturnColor('m-athdd', bar.athDD);
     document.getElementById('m-atr').innerText = bar.atrPct + '%';
+    setReturnColor('m-chg', bar.chg || '--');
   }
 
   // 4. DATA FETCHING ENGINE & YAHOO METADATA WATERMARK
