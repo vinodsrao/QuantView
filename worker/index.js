@@ -132,6 +132,17 @@ async function handleWatchlistsAPI(request, env) {
     }
   }
 
+  // PUT /api/watchlists/order { orderedIds: number[] } — persist watchlist reorder
+  if (path === "/watchlists/order" && (method === "PUT" || method === "PATCH")) {
+    const { orderedIds } = await readJson();
+    if (!Array.isArray(orderedIds)) return json({ error: "orderedIds[] is required" }, 400);
+    const stmts = orderedIds.map((wlId, idx) =>
+      db.prepare("UPDATE watchlists SET position = ? WHERE id = ?").bind(idx, Number(wlId))
+    );
+    if (stmts.length) await db.batch(stmts);
+    return json({ ok: true });
+  }
+
   // /api/watchlists/:id
   let m = path.match(/^\/watchlists\/(\d+)$/);
   if (m) {

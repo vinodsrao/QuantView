@@ -136,6 +136,10 @@
       <div class="flex items-center space-x-1 shrink-0">
         <button id="new-wl-btn" title="Create New Watchlist"
                 class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold">+</button>
+        <button id="move-wl-up-btn" title="Move Watchlist Up"
+                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">▲</button>
+        <button id="move-wl-down-btn" title="Move Watchlist Down"
+                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">▼</button>
         <button id="rename-wl-btn" title="Rename Watchlist"
                 class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">✏️</button>
         <button id="delete-wl-btn" title="Delete Watchlist"
@@ -830,9 +834,32 @@
   // Exposed for any legacy inline handlers (now using addEventListener, kept for safety)
   window.removeWatchlistItem = removeWatchlistItem;
 
+  async function moveActiveWatchlist(dir) {
+    if (watchlists.length < 2) return;
+    const idx = watchlists.findIndex(w => w.id === activeWatchlistId);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= watchlists.length) return;
+    const ordered = [...watchlists];
+    const [moved] = ordered.splice(idx, 1);
+    ordered.splice(newIdx, 0, moved);
+    // Optimistic reorder
+    watchlists = ordered;
+    renderWatchlistSelector();
+    try {
+      await watchlistApi('/watchlists/order', 'PUT', { orderedIds: ordered.map(w => w.id) });
+      await loadWatchlists();
+    } catch (err) {
+      console.error('Reorder watchlists failed:', err);
+      await loadWatchlists();
+    }
+  }
+
   function setupWatchlistControls() {
     const select = document.getElementById('watchlist-select');
     const newBtn = document.getElementById('new-wl-btn');
+    const upBtn = document.getElementById('move-wl-up-btn');
+    const downBtn = document.getElementById('move-wl-down-btn');
     const renameBtn = document.getElementById('rename-wl-btn');
     const deleteBtn = document.getElementById('delete-wl-btn');
 
@@ -859,6 +886,9 @@
         }
       };
     }
+
+    if (upBtn) upBtn.onclick = () => moveActiveWatchlist(-1);
+    if (downBtn) downBtn.onclick = () => moveActiveWatchlist(1);
 
     if (renameBtn) {
       renameBtn.onclick = async () => {
