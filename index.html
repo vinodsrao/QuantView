@@ -30,11 +30,6 @@
       width: 100%;
     }
 
-    #rs-chart-container {
-      height: 160px;
-      width: 100%;
-    }
-
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -120,32 +115,6 @@
       </div>
     </div>
 
-    <!-- RS (Relative Strength) Pane — Pine: RS Candles With Accum Dist, overlay=false -->
-    <div class="shrink-0 border-b border-[#2a2e39] bg-[#1a1e29]">
-      <div class="px-4 py-1 flex items-center justify-between text-[11px] font-mono overflow-x-auto whitespace-nowrap gap-4">
-        <div class="flex items-center space-x-3">
-          <span class="font-bold text-gray-300 uppercase tracking-wider">RS <span id="rs-bench" class="text-gray-500">--</span></span>
-          <span>O: <span id="rs-o" class="text-white">--</span></span>
-          <span>H: <span id="rs-h" class="text-white">--</span></span>
-          <span>L: <span id="rs-l" class="text-white">--</span></span>
-          <span>C: <span id="rs-c" class="text-white">--</span></span>
-          <span>Chg: <span id="rs-chg" class="text-white">--</span></span>
-          <span id="rs-ema-legend" class="text-amber-300/80"></span>
-        </div>
-        <div class="flex items-center space-x-2 text-[10px] text-gray-400 shrink-0">
-          <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" id="rs-ema1" class="accent-amber-400"> <span>EMA-S</span></label>
-          <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" id="rs-ema2" class="accent-amber-400"> <span>EMA-M</span></label>
-          <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" id="rs-ema3" class="accent-red-400"> <span>EMA-L</span></label>
-          <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" id="rs-cur" checked class="accent-gray-400"> <span>CurLine</span></label>
-          <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" id="rs-lb" class="accent-yellow-300"> <span>▲LB</span></label>
-        </div>
-      </div>
-    </div>
-    <div id="rs-chart-container" class="relative shrink-0"></div>
-
-    <!-- Separator Border -->
-    <div class="h-[1px] bg-[#2a2e39] w-full shrink-0"></div>
-
     <!-- Main Candlestick Chart Pane -->
     <div id="price-chart-container" class="relative"></div>
 
@@ -213,96 +182,6 @@
     '1M': { range: '10y', interval: '1mo', label: '1M' },
     '3M': { range: '10y', interval: '3mo', label: '3M' }
   };
-
-  // RS benchmark cache: 2 markets x 4 timeframes = 8 entries, fetched once on load.
-  // NSE:CNX500 (Nifty 500) -> Yahoo ^CRSLDX, SP:SPX -> Yahoo ^GSPC.
-  const BENCHMARKS = { US: '^GSPC', IN: '^CRSLDX' };
-  const benchCache = {}; // key `${market}_${tfKey}` -> { bars, byTime: Map }
-  let benchPreloadStatus = 'idle'; // idle | loading | ready | partial | error
-
-  function isIndiaSymbol(sym) {
-    return /\.NS$|\.BO$/i.test(sym || '');
-  }
-
-  function marketForSymbol(sym) {
-    return isIndiaSymbol(sym) ? 'IN' : 'US';
-  }
-
-  function benchKey(market, tfKey) {
-    return `${market}_${tfKey}`;
-  }
-
-  function getCachedBenchmark(symbol, tfKey) {
-    return benchCache[benchKey(marketForSymbol(symbol), tfKey)] || null;
-  }
-
-  // Shared Yahoo -> normalized bar parser (OHLC required, volume optional for indices).
-  function parseYahooBars(result, tfKey) {
-    const timestamps = result.timestamp || [];
-    const quote = (result.indicators && result.indicators.quote && result.indicators.quote[0]) || {};
-    const raw = [];
-    const timestampMap = new Map();
-    for (let i = 0; i < timestamps.length; i++) {
-      if (quote.open[i] != null && quote.high[i] != null && quote.low[i] != null && quote.close[i] != null) {
-        const normalizedTime = normalizeTimestamp(timestamps[i], tfKey);
-        if (timestampMap.has(normalizedTime)) {
-          const existingBar = timestampMap.get(normalizedTime);
-          existingBar.high = Math.max(existingBar.high, quote.high[i]);
-          existingBar.low = Math.min(existingBar.low, quote.low[i]);
-          existingBar.close = quote.close[i];
-          existingBar.volume += (quote.volume[i] || 0);
-        } else {
-          const newBar = {
-            time: normalizedTime,
-            open: quote.open[i],
-            high: quote.high[i],
-            low: quote.low[i],
-            close: quote.close[i],
-            volume: quote.volume[i] || 0
-          };
-          timestampMap.set(normalizedTime, newBar);
-          raw.push(newBar);
-        }
-      }
-    }
-    return raw;
-  }
-
-  async function fetchBenchmark(market, tfKey) {
-    const benchSymbol = BENCHMARKS[market];
-    const tfConfig = TIMEFRAME_MAP[tfKey];
-    const key = benchKey(market, tfKey);
-    const url = `${WORKER_URL}?symbol=${encodeURIComponent(benchSymbol)}&range=${tfConfig.range}&interval=${tfConfig.interval}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Bench ${benchSymbol} ${tfKey}: ${response.statusText}`);
-    const data = await response.json();
-    const result = data.chart.result[0];
-    const bars = parseYahooBars(result, tfKey);
-    const byTime = new Map(bars.map(b => [b.time, b]));
-    benchCache[key] = { symbol: benchSymbol, market, tfKey, bars, byTime };
-    return benchCache[key];
-  }
-
-  // Fetch all 8 (2 benches x 4 TFs) once on load, in parallel. Non-blocking for main chart.
-  async function preloadBenchmarks() {
-    benchPreloadStatus = 'loading';
-    const jobs = [];
-    for (const market of Object.keys(BENCHMARKS)) {
-      for (const tfKey of Object.keys(TIMEFRAME_MAP)) {
-        jobs.push(
-          fetchBenchmark(market, tfKey).catch(err => {
-            console.warn('Benchmark preload failed:', benchKey(market, tfKey), err.message);
-            return null;
-          })
-        );
-      }
-    }
-    const results = await Promise.all(jobs);
-    const ok = results.filter(Boolean).length;
-    benchPreloadStatus = ok === 8 ? 'ready' : ok > 0 ? 'partial' : 'error';
-    console.info(`Benchmark cache: ${ok}/8 loaded (${benchPreloadStatus})`);
-    return benchCache;
-  }
 
   // Watchlist contents live in Cloudflare D1 (server-side). Only UI prefs
   // (active id, symbol, timeframe) stay in localStorage.
@@ -537,183 +416,15 @@
     });
   }
 
-  // 2b. RS ENGINE — port of Pine v6 'RS Candles With Accum Dist Log Scale' (overlay=false)
-  const RS_SETTINGS = {
-    zThreshold: 1.0,
-    showCurrLine: localStorage.getItem('quantview_rs_cur') !== '0',
-    showLookback: localStorage.getItem('quantview_rs_lb') === '1',
-    showEma1: localStorage.getItem('quantview_rs_ema1') === '1',
-    showEma2: localStorage.getItem('quantview_rs_ema2') === '1',
-    showEma3: localStorage.getItem('quantview_rs_ema3') === '1',
-  };
-  let rsData = [];
-  let lastRaw = [];
-  let rsLookbackLen = 21;
-
-  // Pine dynamicLookback() triplets. App TFs: 1d=daily, 1w=weekly, 1M=monthly, 3M=quarterly(4).
-  function rsLookbackTriple(tfKey) {
-    if (tfKey === '1d') return [21, 63, 252];
-    if (tfKey === '1w') return [0, 13, 52];
-    if (tfKey === '1M') return [0, 0, 12];
-    if (tfKey === '3M') return [0, 0, 4];
-    return [21, 63, 252];
-  }
-
-  function emaArray(src, len) {
-    const out = new Array(src.length).fill(null);
-    if (!(len > 0) || !src.length) return out;
-    const alpha = 2 / (len + 1);
-    let prev = src[0];
-    out[0] = prev;
-    for (let i = 1; i < src.length; i++) {
-      if (src[i] == null) { out[i] = prev; continue; }
-      prev = alpha * src[i] + (1 - alpha) * prev;
-      out[i] = prev;
-    }
-    return out;
-  }
-
-  // Pine ta.atr(len) = RMA(TR). Seed with SMA of first len TRs, then Wilder smoothing.
-  function atrRmaArray(bars, len) {
-    const out = new Array(bars.length).fill(0);
-    if (!(len > 0) || !bars.length) return out;
-    const trs = bars.map((b, i) => {
-      const prevClose = i > 0 ? bars[i - 1].close : b.open;
-      return Math.max(b.high - b.low, Math.abs(b.high - prevClose), Math.abs(b.low - prevClose));
-    });
-    let acc = 0;
-    for (let i = 0; i < bars.length; i++) {
-      if (i < len) {
-        acc += trs[i];
-        out[i] = acc / (i + 1);
-      } else if (i === len) {
-        acc += trs[i];
-        out[i] = acc / len;
-      } else {
-        out[i] = (out[i - 1] * (len - 1) + trs[i]) / len;
-      }
-    }
-    return out;
-  }
-
-  function findBenchAtOrBefore(benchBars, targetTime) {
-    if (!benchBars.length) return null;
-    let lo = 0, hi = benchBars.length - 1, ans = -1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (benchBars[mid].time <= targetTime) { ans = mid; lo = mid + 1; }
-      else hi = mid - 1;
-    }
-    return ans >= 0 ? benchBars[ans] : null;
-  }
-
-  function calculateRS(mainBars, benchEntry, tfKey) {
-    const [lb1, lb2, lb3] = rsLookbackTriple(tfKey);
-    const len = lb1 > 0 ? lb1 : (lb2 > 0 ? lb2 : (lb3 > 0 ? lb3 : 21));
-    rsLookbackLen = lb1 > 0 ? lb1 : len;
-    const mintick = 0.0001;
-    const zThreshold = RS_SETTINGS.zThreshold;
-    const benchBars = (benchEntry && benchEntry.bars) || [];
-    const benchByTime = (benchEntry && benchEntry.byTime) || new Map();
-
-    const volumes = mainBars.map(d => d.volume || 0);
-    const atrArr = atrRmaArray(mainBars, len);
-
-    const pctCList = [];
-    let cumRs = 0;
-    const rows = [];
-
-    for (let i = 0; i < mainBars.length; i++) {
-      const bar = mainBars[i];
-      // --- Accum/Dist power (same rules as price pane) ---
-      const s = Math.max(0, i - len + 1);
-      const sliceVol = volumes.slice(s, i + 1);
-      const avgVol = sliceVol.reduce((a, b) => a + b, 0) / sliceVol.length;
-      let variance = 0;
-      for (const v of sliceVol) variance += (v - avgVol) * (v - avgVol);
-      variance /= sliceVol.length;
-      const stdVol = Math.sqrt(variance) || 0.0001;
-      const atr = atrArr[i] || mintick;
-
-      const priceRange = Math.max(bar.high - bar.low, mintick);
-      const clv = (bar.close - bar.low) / priceRange;
-      const prevCloseMain = i > 0 ? mainBars[i - 1].close : bar.open;
-      const pChg = i > 0 ? bar.close - mainBars[i - 1].close : 0;
-      const pMoveInten = Math.abs(pChg) / Math.max(atr, mintick);
-      const zScore = (bar.volume - avgVol) / Math.max(stdVol, mintick);
-      const vRatio = bar.volume / Math.max(avgVol, 1);
-      const isChurn = zScore > zThreshold && pMoveInten < 0.3;
-      const isAccu = zScore > zThreshold && !isChurn && pChg > (-0.5 * atr) && ((bar.close > prevCloseMain && clv > 0.4) || clv > 0.8);
-      const isDist = zScore > zThreshold && !isChurn && (pChg < -atr || (bar.close < prevCloseMain && clv < 0.6) || clv < 0.2);
-      const powerAccu = vRatio * clv * pMoveInten;
-      const powerDist = vRatio * (1 - clv) * pMoveInten;
-      const accuTransp = Math.min(100, Math.max(0, 100 - Math.floor(powerAccu * 60)));
-      const distTransp = Math.min(100, Math.max(0, 100 - Math.floor(powerDist * 60)));
-
-      // --- Log RS vs benchmark (request.security same TF) ---
-      const bNow = benchByTime.get(bar.time) || findBenchAtOrBefore(benchBars, bar.time);
-      const prevMain = i > 0 ? mainBars[i - 1] : null;
-      const bPrev = prevMain ? (benchByTime.get(prevMain.time) || findBenchAtOrBefore(benchBars, prevMain.time)) : null;
-
-      let pct_o = null, pct_h = null, pct_l = null, pct_c = null;
-      if (i === 0 || !bNow || !bPrev || !prevMain) {
-        // Seed first bar at 0 (Pine nz(cum[1],0) equivalent)
-        if (i === 0) { cumRs = 0; pct_o = 0; pct_h = 0; pct_l = 0; pct_c = 0; }
-      } else if (bar.open > 0 && bar.high > 0 && bar.low > 0 && bar.close > 0 && prevMain.close > 0 &&
-                 bNow.open > 0 && bNow.high > 0 && bNow.low > 0 && bNow.close > 0 && bPrev.close > 0) {
-        const daily_o = (Math.log(bar.open) - Math.log(prevMain.close)) - (Math.log(bNow.open) - Math.log(bPrev.close));
-        const daily_c = (Math.log(bar.close) - Math.log(prevMain.close)) - (Math.log(bNow.close) - Math.log(bPrev.close));
-        const intra_h = (Math.log(bar.high) - Math.log(bar.open)) - (Math.log(bNow.high) - Math.log(bNow.open));
-        const intra_l = (Math.log(bar.low) - Math.log(bar.open)) - (Math.log(bNow.low) - Math.log(bNow.open));
-        const prevCum = cumRs;
-        cumRs += daily_c;
-        pct_o = (prevCum + daily_o) * 100;
-        pct_c = cumRs * 100;
-        pct_h = Math.max(pct_o, pct_c, (prevCum + daily_o + intra_h) * 100);
-        pct_l = Math.min(pct_o, pct_c, (prevCum + daily_o + intra_l) * 100);
-      }
-      // Carry forward last cum when bench missing (holiday mismatch) to avoid gaps
-      if (pct_c == null) {
-        const last = pctCList.length ? pctCList[pctCList.length - 1] : 0;
-        pct_o = last; pct_h = last; pct_l = last; pct_c = last;
-      }
-      pctCList.push(pct_c);
-      rows.push({ time: bar.time, open: pct_o, high: pct_h, low: pct_l, close: pct_c, isChurn, isAccu, isDist, accuTransp, distTransp });
-    }
-
-    // EMAs of pct_rs_c (Pine: na when lookback==0)
-    const ema1Arr = lb1 > 0 ? emaArray(pctCList, lb1) : new Array(rows.length).fill(null);
-    const ema2Arr = lb2 > 0 ? emaArray(pctCList, lb2) : new Array(rows.length).fill(null);
-    const ema3Arr = lb3 > 0 ? emaArray(pctCList, lb3) : new Array(rows.length).fill(null);
-
-    return rows.map((r, i) => {
-      const isBull = r.close >= r.open;
-      let color = isBull ? '#b2b5be' : '#4c525e';
-      let wickColor = isBull ? '#b2b5be' : '#848b9a';
-      let signalTag = 'NEUTRAL';
-      if (r.isChurn) { color = 'rgba(39, 156, 245, 0.7)'; wickColor = 'rgba(39, 156, 245, 0.5)'; signalTag = 'CHURN'; }
-      else if (r.isAccu) { const a = ((100 - r.accuTransp) / 100).toFixed(2); color = `rgba(156, 245, 39, ${a})`; wickColor = 'rgba(156, 245, 39, 0.5)'; signalTag = 'ACCUMULATION'; }
-      else if (r.isDist) { const a = ((100 - r.distTransp) / 100).toFixed(2); color = `rgba(245, 39, 156, ${a})`; wickColor = 'rgba(245, 39, 156, 0.5)'; signalTag = 'DISTRIBUTION'; }
-      const prevC = i > 0 ? pctCList[i - 1] : r.close;
-      const chg = prevC !== 0 ? ((r.close - prevC) / Math.abs(prevC)) * 100 : 0;
-      return { ...r, borderColor: color, color, wickColor, signalTag, rsPct: chg, ema1: ema1Arr[i], ema2: ema2Arr[i], ema3: ema3Arr[i] };
-    });
-  }
-
-  let rsChart, rsCandleSeries, rsEma1Series, rsEma2Series, rsEma3Series, rsPriceLine = null;
-  let isSyncingRange = false;
-
   // 3. CHART INITIALIZATION
   function initCharts() {
     const priceContainer = document.getElementById('price-chart-container');
     const volumeContainer = document.getElementById('volume-chart-container');
-    const rsContainer = document.getElementById('rs-chart-container');
 
     if (!priceContainer || !volumeContainer) return;
 
     const pHeight = priceContainer.clientHeight || 400;
     const vHeight = volumeContainer.clientHeight || 128;
-    const rsHeight = (rsContainer && rsContainer.clientHeight) || 160;
 
     priceChart = LightweightCharts.createChart(priceContainer, {
       layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
@@ -743,70 +454,17 @@
     candleSeries = priceChart.addCandlestickSeries();
     volumeSeries = volumeChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
 
-    if (rsContainer) {
-      rsChart = LightweightCharts.createChart(rsContainer, {
-        layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
-        grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-        timeScale: { rightOffset: 5, barSpacing: 10 },
-        height: rsHeight,
-        rightPriceScale: { minimumWidth: 75, mode: 1 },
-      });
-      rsCandleSeries = rsChart.addCandlestickSeries({ priceLineVisible: false });
-      rsEma1Series = rsChart.addLineSeries({ color: 'rgba(255, 191, 0, 0.3)', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-      rsEma2Series = rsChart.addLineSeries({ color: 'rgba(255, 191, 0, 0.4)', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-      rsEma3Series = rsChart.addLineSeries({ color: 'rgba(255, 49, 49, 0.2)', lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    }
-
-    function syncRange(source, targets, range) {
-      if (!range || isSyncingRange) return;
-      isSyncingRange = true;
-      try { targets.forEach(t => { try { t.timeScale().setVisibleLogicalRange(range); } catch {} }); }
-      finally { isSyncingRange = false; }
-    }
-
     priceChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-      const targets = [volumeChart, rsChart].filter(Boolean);
-      syncRange(priceChart, targets, range);
+      volumeChart.timeScale().setVisibleLogicalRange(range);
     });
     volumeChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-      const targets = [priceChart, rsChart].filter(Boolean);
-      syncRange(volumeChart, targets, range);
-    });
-    if (rsChart) {
-      rsChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-        syncRange(rsChart, [priceChart, volumeChart], range);
-      });
-    }
-
-    window.addEventListener('resize', () => {
-      const w = priceContainer.clientWidth;
-      if (w > 0) {
-        priceChart.applyOptions({ width: w });
-        volumeChart.applyOptions({ width: w });
-        if (rsChart) rsChart.applyOptions({ width: w });
-      }
+      priceChart.timeScale().setVisibleLogicalRange(range);
     });
 
     priceChart.subscribeCrosshairMove(param => updateStatusBar(param));
     volumeChart.subscribeCrosshairMove(param => updateStatusBar(param));
-    if (rsChart) rsChart.subscribeCrosshairMove(param => updateStatusBar(param));
 
     setupTimeframeListeners();
-    setupRSControls();
-  }
-
-  function setupRSControls() {
-    const map = [['rs-ema1', 'showEma1', 'quantview_rs_ema1'], ['rs-ema2', 'showEma2', 'quantview_rs_ema2'], ['rs-ema3', 'showEma3', 'quantview_rs_ema3'], ['rs-cur', 'showCurrLine', 'quantview_rs_cur'], ['rs-lb', 'showLookback', 'quantview_rs_lb']];
-    map.forEach(([id, key, ls]) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.checked = !!RS_SETTINGS[key];
-      el.onchange = () => {
-        RS_SETTINGS[key] = el.checked;
-        localStorage.setItem(ls, el.checked ? '1' : '0');
-        refreshRSPane();
-      };
-    });
   }
 
   function setupTimeframeListeners() {
@@ -842,36 +500,10 @@
   function updateStatusBar(param) {
     if (!param || !param.time || !chartData.length) {
       if (chartData.length) renderMetricsForBar(chartData[chartData.length - 1]);
-      if (rsData.length) renderRSForBar(rsData[rsData.length - 1]);
       return;
     }
     const bar = chartData.find(d => d.time === param.time);
     if (bar) renderMetricsForBar(bar);
-    const rsBar = rsData.find(d => d.time === param.time);
-    if (rsBar) renderRSForBar(rsBar);
-  }
-
-  function renderRSForBar(rsBar) {
-    const set = (id, v) => { const el = document.getElementById(id); if (el && rsBar) el.innerText = v; };
-    if (!rsBar) return;
-    set('rs-o', rsBar.open.toFixed(2));
-    set('rs-h', rsBar.high.toFixed(2));
-    set('rs-l', rsBar.low.toFixed(2));
-    set('rs-c', rsBar.close.toFixed(2));
-    const chgEl = document.getElementById('rs-chg');
-    if (chgEl) {
-      const v = rsBar.rsPct;
-      chgEl.innerText = (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
-      chgEl.style.color = v > 0 ? '#9cf527' : v < 0 ? '#f5279c' : '#d1d4dc';
-    }
-    const emaEl = document.getElementById('rs-ema-legend');
-    if (emaEl) {
-      const parts = [];
-      if (RS_SETTINGS.showEma1 && rsBar.ema1 != null) parts.push(`EMA-S:${rsBar.ema1.toFixed(2)}`);
-      if (RS_SETTINGS.showEma2 && rsBar.ema2 != null) parts.push(`EMA-M:${rsBar.ema2.toFixed(2)}`);
-      if (RS_SETTINGS.showEma3 && rsBar.ema3 != null) parts.push(`EMA-L:${rsBar.ema3.toFixed(2)}`);
-      emaEl.innerText = parts.join('  ');
-    }
   }
 
   function renderMetricsForBar(bar) {
@@ -922,54 +554,6 @@
   }
 
   // 4. DATA FETCHING ENGINE & YAHOO METADATA WATERMARK
-  async function refreshRSPane() {
-    if (!rsCandleSeries || !lastRaw.length) return;
-    let bench = getCachedBenchmark(currentSymbol, currentTimeframe);
-    if (!bench) {
-      // On-demand fallback when preload missed (e.g. first paint race). Then cache for session.
-      try { bench = await fetchBenchmark(marketForSymbol(currentSymbol), currentTimeframe); }
-      catch (e) { console.warn('RS bench on-demand fetch failed:', e.message); return; }
-    }
-    const benchEl = document.getElementById('rs-bench');
-    if (benchEl) benchEl.innerText = `vs ${bench.symbol}`;
-    rsData = calculateRS(lastRaw, bench, currentTimeframe);
-    rsCandleSeries.setData(rsData.map(d => ({
-      time: d.time, open: d.open, high: d.high, low: d.low, close: d.close,
-      color: d.color, wickColor: d.wickColor, borderColor: d.borderColor
-    })));
-    const filt = (key, flag) => RS_SETTINGS[flag]
-      ? rsData.filter(d => d[key] != null).map(d => ({ time: d.time, value: d[key] }))
-      : [];
-    rsEma1Series.setData(filt('ema1', 'showEma1'));
-    rsEma2Series.setData(filt('ema2', 'showEma2'));
-    rsEma3Series.setData(filt('ema3', 'showEma3'));
-
-    // Current RS value line (Pine: show_curr_line, dotted both-extend) -> Lightweight price line
-    if (rsPriceLine) { try { rsCandleSeries.removePriceLine(rsPriceLine); } catch {} rsPriceLine = null; }
-    if (RS_SETTINGS.showCurrLine && rsData.length) {
-      const last = rsData[rsData.length - 1];
-      rsPriceLine = rsCandleSeries.createPriceLine({
-        price: last.close, color: 'rgba(178,181,190,0.6)', lineWidth: 1, lineStyle: 2,
-        axisLabelVisible: true, title: 'RS'
-      });
-    }
-    // Lookback start triangle (Pine: offset=-(lookback-1), location.bottom)
-    if (RS_SETTINGS.showLookback && rsData.length && rsLookbackLen > 1) {
-      const idx = rsData.length - rsLookbackLen;
-      if (idx >= 0) {
-        rsCandleSeries.setMarkers([{ time: rsData[idx].time, position: 'belowBar', color: '#ffeb3b', shape: 'arrowUp', text: 'LB' }]);
-      } else rsCandleSeries.setMarkers([]);
-    } else {
-      try { rsCandleSeries.setMarkers([]); } catch {}
-    }
-    renderRSForBar(rsData[rsData.length - 1]);
-    // Keep RS viewport aligned with price pane
-    try {
-      const range = priceChart.timeScale().getVisibleLogicalRange();
-      if (range) rsChart.timeScale().setVisibleLogicalRange(range);
-    } catch {}
-  }
-
   async function loadData(symbol, tfKey = '1d') {
     const tfConfig = TIMEFRAME_MAP[tfKey] || TIMEFRAME_MAP['1d'];
     const badge = document.getElementById('data-source-badge');
@@ -1018,8 +602,41 @@
         });
       }
 
-      const raw = parseYahooBars(result, tfKey);
-      lastRaw = raw;
+      const timestamps = result.timestamp || [];
+      const quote = result.indicators.quote[0];
+
+      const raw = [];
+      const timestampMap = new Map();
+
+      for (let i = 0; i < timestamps.length; i++) {
+        if (
+          quote.open[i] != null &&
+          quote.high[i] != null &&
+          quote.low[i] != null &&
+          quote.close[i] != null
+        ) {
+          const normalizedTime = normalizeTimestamp(timestamps[i], tfKey);
+
+          if (timestampMap.has(normalizedTime)) {
+            const existingBar = timestampMap.get(normalizedTime);
+            existingBar.high = Math.max(existingBar.high, quote.high[i]);
+            existingBar.low = Math.min(existingBar.low, quote.low[i]);
+            existingBar.close = quote.close[i];
+            existingBar.volume += (quote.volume[i] || 0);
+          } else {
+            const newBar = {
+              time: normalizedTime,
+              open: quote.open[i],
+              high: quote.high[i],
+              low: quote.low[i],
+              close: quote.close[i],
+              volume: quote.volume[i] || 0
+            };
+            timestampMap.set(normalizedTime, newBar);
+            raw.push(newBar);
+          }
+        }
+      }
 
       chartData = calculatePineMetrics(raw);
 
@@ -1053,12 +670,9 @@
         };
         priceChart.timeScale().setVisibleLogicalRange(logicalRange);
         volumeChart.timeScale().setVisibleLogicalRange(logicalRange);
-        if (rsChart) { try { rsChart.timeScale().setVisibleLogicalRange(logicalRange); } catch {} }
       }
 
       renderMetricsForBar(chartData[chartData.length - 1]);
-      // RS pane uses cached bench (no extra fetch in steady state)
-      refreshRSPane();
 
       if (badge) {
         badge.innerText = 'PROXY LIVE';
@@ -1355,9 +969,6 @@
     if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
 
     loadData(currentSymbol, currentTimeframe);
-    // Preload all 8 benchmark series (2 markets x 4 TFs) once, cache for RS pane.
-    // Non-blocking: main chart + watchlists load first. Refresh RS when ready (first-paint race).
-    preloadBenchmarks().then(() => { if (lastRaw.length && (!rsData.length || rsData.length !== lastRaw.length)) refreshRSPane(); });
     try {
       await loadWatchlists();
     } catch {
