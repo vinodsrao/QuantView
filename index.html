@@ -144,6 +144,8 @@
                 class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">✏️</button>
         <button id="delete-wl-btn" title="Delete Watchlist"
                 class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-red-900/50 text-red-400 rounded">🗑️</button>
+        <button id="refresh-scanner-btn" title="Refresh from TradingView Scanner"
+                class="text-xs px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded">↻</button>
       </div>
     </div>
 
@@ -926,6 +928,25 @@
       };
     }
 
+    const refreshScannerBtn = document.getElementById('refresh-scanner-btn');
+    if (refreshScannerBtn) {
+      refreshScannerBtn.onclick = async () => {
+        try {
+          const res = await fetch(`${WORKER_URL}/api/scanner/refresh`, { method: 'POST' });
+          const data = await res.json();
+          if (data.ok) {
+            await loadWatchlists();
+            alert('Watchlists refreshed from TradingView!');
+          } else {
+            alert('Refresh failed: ' + (data.error || 'unknown error'));
+          }
+        } catch (err) {
+          console.error('Scanner refresh failed:', err);
+          alert('Refresh failed: ' + err.message);
+        }
+      };
+    }
+
     const addSectionBtn = document.getElementById('add-section-btn');
     if (addSectionBtn) {
       addSectionBtn.onclick = async () => {
@@ -974,6 +995,18 @@
     } catch {
       renderWatchlistSelector();
       renderActiveWatchlist();
+    }
+
+    // Auto-refresh scanner watchlists on page load
+    try {
+      const res = await fetch(`${WORKER_URL}/api/scanner/auto-refresh`);
+      const data = await res.json();
+      if (data.refreshed) {
+        console.log('Scanner watchlists refreshed:', data.data);
+        await loadWatchlists(); // reload watchlist selector
+      }
+    } catch (err) {
+      console.error('Scanner auto-refresh failed:', err);
     }
   });
 </script>

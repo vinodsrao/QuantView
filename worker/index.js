@@ -1,3 +1,5 @@
+import { handleAutoRefresh, handleScannerRefresh } from './tv_scanner.js';
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
@@ -19,7 +21,7 @@ const DEFAULT_SEED = {
   ],
 };
 
-function json(data, status = 200, extraHeaders = {}) {
+export function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -286,6 +288,17 @@ export default {
     }
 
     const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method.toUpperCase();
+
+    // Scanner API routes
+    if (path === "/api/scanner/auto-refresh" && method === "GET") {
+      return handleAutoRefresh(request, env);
+    }
+    if (path === "/api/scanner/refresh" && method === "POST") {
+      return handleScannerRefresh(request, env);
+    }
+
     if (url.pathname.startsWith("/api/")) {
       try {
         return await handleWatchlistsAPI(request, env);
