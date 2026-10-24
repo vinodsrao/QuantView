@@ -46,6 +46,11 @@ const SCAN_QUERIES = {
         left: 'ATRP|1M',
         operation: 'less',
         right: 12
+      },
+      {
+        left: "AvgValue.Traded_90d",
+        operation: "greater",
+        right: 3000000
       }
     ],
     sort: {
@@ -88,6 +93,11 @@ const SCAN_QUERIES = {
         left: 'ATRP|1M',
         operation: 'less',
         right: 12
+      },
+      {
+        left: "AvgValue.Traded_90d",
+        operation: "greater",
+        right: 30000000
       }
     ],
     sort: {
