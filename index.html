@@ -112,6 +112,7 @@
         <div><span class="text-gray-400">10YH DD:</span> <span id="m-athdd" class="font-bold text-[#f5279c]">--</span></div>
         <div><span class="text-gray-400">ATR%:</span> <span id="m-atr" class="font-bold text-amber-400">--</span></div>
         <div><span class="text-gray-400">Chg:</span> <span id="m-chg" class="font-bold text-white">--</span></div>
+        <div><span class="text-gray-400">Avg Vol:</span> <span id="m-avgvol" class="font-bold text-purple-400">--</span></div>
       </div>
     </div>
 
@@ -283,8 +284,26 @@
     return 21;
   }
 
+  function tradingDaysPerBar(timeframeKey) {
+    if (timeframeKey === '1d') return 1;
+    if (timeframeKey === '1w') return 5;
+    if (timeframeKey === '1M') return 21;
+    if (timeframeKey === '3M') return 63;
+    return 1;
+  }
+
+  function formatCurrencyVolume(val, isInr) {
+    if (val == null || !isFinite(val) || val < 0) return '--';
+    const abs = Math.abs(val);
+    if (isInr) {
+      return '₹' + (abs / 1e7).toFixed(2) + 'Cr';
+    }
+    return '$' + (abs / 1e6).toFixed(2) + 'M';
+  }
+
   function calculatePineMetrics(data, zThreshold = 1.0) {
     const len = dynamicLookback(currentTimeframe);
+    const isInr = currentSymbol.endsWith('.NS');
     const volumes = data.map(d => d.volume);
     let runningAthPeak = 0;
 
@@ -326,6 +345,10 @@
         trSum += tr;
       }
       const atr = trSum / (i - start + 1);
+
+      const volSlice = data.slice(Math.max(0, i - len + 1), i + 1);
+      const avgCurrencyVolPerBar = volSlice.reduce((sum, d) => sum + (d.close * (d.volume || 0)), 0) / volSlice.length;
+      const avgCurrencyVol = avgCurrencyVolPerBar / tradingDaysPerBar(currentTimeframe);
 
       const mintick = 0.0001;
       const zScore = (bar.volume - avgVol) / Math.max(stdVol, mintick);
@@ -413,7 +436,8 @@
         cagr7y: isNaN(cagr7y) ? '--' : cagr7y.toFixed(1) + '%',
         cagr10y: isNaN(cagr10y) ? '--' : cagr10y.toFixed(1) + '%',
         pivotDD: pivotDD.toFixed(1) + '%',
-        athDD: athDD.toFixed(1) + '%'
+        athDD: athDD.toFixed(1) + '%',
+        avgVolCur: formatCurrencyVolume(avgCurrencyVol, isInr)
       };
     });
   }
@@ -553,6 +577,7 @@
     setReturnColor('m-athdd', bar.athDD);
     document.getElementById('m-atr').innerText = bar.atrPct + '%';
     setReturnColor('m-chg', bar.chg || '--');
+    document.getElementById('m-avgvol').innerText = bar.avgVolCur || '--';
   }
 
   // 4. DATA FETCHING ENGINE & YAHOO METADATA WATERMARK
