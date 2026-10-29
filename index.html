@@ -69,6 +69,21 @@
             class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 border border-green-700/50 font-mono">PROXY LIVE</span>
     </div>
 
+    <!-- Symbol Search -->
+    <div class="flex-1 max-w-md mx-4">
+      <div class="relative">
+        <input
+          id="symbol-search"
+          type="text"
+          placeholder="Search symbol (e.g. AAPL, TSLA, BTC-USD)"
+          class="w-full bg-[#131722] border border-[#2a2e39] rounded text-white text-xs px-3 py-1.5 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+        />
+        <div id="search-results"
+             class="absolute z-20 w-full bg-[#1e222d] border border-[#2a2e39] rounded mt-1 max-h-64 overflow-y-auto shadow-xl hidden">
+        </div>
+      </div>
+    </div>
+
     <!-- Timeframe Buttons -->
     <div class="flex items-center space-x-1 ml-4 bg-[#131722] p-0.5 rounded border border-[#2a2e39]">
       <button class="tf-btn px-2.5 py-1 text-xs rounded font-medium hover:bg-[#2a2e39] text-gray-400"
@@ -194,6 +209,13 @@
     ? Number(localStorage.getItem('quantview_active_watchlist_id'))
     : null;
   let watchlistsLoading = false;
+
+  // Search state
+  let searchDebounceTimer = null;
+  let searchResults = [];
+  let searchSelectedIndex = -1;
+  let searchInput = null;
+  let searchResultsEl = null;
 
   function getActiveWatchlist() {
     return watchlists.find(w => w.id === activeWatchlistId) || watchlists[0] || null;
@@ -1007,9 +1029,132 @@
     }
   }
 
+  // Search functions
+
+  function openSearch() {
+    if (!searchResultsEl) return;
+    searchResultsEl.classList.remove('hidden');
+  }
+
+  function closeSearch() {
+    if (!searchResultsEl) return;
+    searchResultsEl.classList.add('hidden');
+    searchSelectedIndex = -1;
+  }
+
+  function renderSearchResults() {
+    if (!searchResultsEl) return;
+    if (!searchResults.length || !searchInput.value.trim()) {
+      closeSearch();
+      return;
+    }
+    openSearch();
+    searchResultsEl.innerHTML = '';
+    searchResults.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = `px-3 py-2 text-xs cursor-pointer hover:bg-[#2a2e39] ${idx === searchSelectedIndex ? 'bg-[#2a2e39] text-blue-400' : 'text-gray-300'}`;
+      div.innerHTML = `
+        <div class="font-bold">${escapeHtml(item.symbol)}</div>
+        ${item.shortName ? `<div class="text-gray-500 truncate">${escapeHtml(item.shortName)}</div>` : ''}
+        ${item.exchange ? `<div class="text-[10px] text-gray-600">${escapeHtml(item.exchange)}</div>` : ''}
+      `;
+      div.onclick = (e) => {
+        e.stopPropagation();
+        selectSearchResult(item);
+      };
+      searchResultsEl.appendChild(div);
+    });
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  async function performSearch(query) {
+    try {
+      const res = await fetch(`${WORKER_URL}/api/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+      searchResults = await res.json();
+    } catch (err) {
+      console.error('Search error:', err);
+      searchResults = [];
+    }
+    renderSearchResults();
+  }
+
+  function selectSearchResult(item) {
+    currentSymbol = item.symbol;
+    localStorage.setItem('quantview_symbol', currentSymbol);
+    const symbolDisplay = document.getElementById('symbol-display');
+    if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
+    if (searchInput) searchInput.value = item.symbol;
+    closeSearch();
+    loadData(currentSymbol, currentTimeframe);
+  }
+
+  function setupSearchControls() {
+    searchInput = document.getElementById('symbol-search');
+    searchResultsEl = document.getElementById('search-results');
+    if (!searchInput || !searchResultsEl) return;
+
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      if (!q) {
+        closeSearch();
+        searchResults = [];
+        return;
+      }
+      searchDebounceTimer = setTimeout(() => {
+        performSearch(q);
+      }, 300);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        searchSelectedIndex = Math.min(searchSelectedIndex + 1, searchResults.length - 1);
+        renderSearchResults();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        searchSelectedIndex = Math.max(searchSelectedIndex - 1, -1);
+        renderSearchResults();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchSelectedIndex >= 0 && searchResults[searchSelectedIndex]) {
+          selectSearchResult(searchResults[searchSelectedIndex]);
+        } else if (searchResults.length > 0) {
+          selectSearchResult(searchResults[0]);
+        } else {
+          const sym = searchInput.value.trim().toUpperCase();
+          if (sym) {
+            currentSymbol = sym;
+            localStorage.setItem('quantview_symbol', currentSymbol);
+            const symbolDisplay = document.getElementById('symbol-display');
+            if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
+            closeSearch();
+            loadData(currentSymbol, currentTimeframe);
+          }
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSearch();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (searchResultsEl && !searchResultsEl.contains(e.target) && e.target !== searchInput) {
+        closeSearch();
+      }
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     initCharts();
     setupWatchlistControls();
+    setupSearchControls();
 
     const symbolDisplay = document.getElementById('symbol-display');
     if (symbolDisplay) symbolDisplay.innerText = currentSymbol;

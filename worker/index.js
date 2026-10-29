@@ -249,6 +249,51 @@ async function handleWatchlistsAPI(request, env) {
   return json({ error: "unknown API route" }, 404);
 }
 
+async function handleSearch(request) {
+  const url = new URL(request.url);
+  const q = (url.searchParams.get("q") || "").trim();
+  if (!q) return json({ error: "q is required" }, 400);
+
+  const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}`;
+
+  try {
+    const apiRes = await fetch(targetUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+    });
+    if (!apiRes.ok) {
+      return json({ error: `Yahoo search error: ${apiRes.status}` }, 502);
+    }
+    const data = await apiRes.json();
+    const quotes = Array.isArray(data.quotes) ? data.quotes : [];
+    const results = quotes
+      .filter((item) => item.symbol)
+      .map((item) => ({
+        symbol: item.symbol,
+        shortName: item.shortname || item.longname || "",
+        exchange: item.exchange || "",
+        type: item.quoteType || item.typeDisp || "",
+      }))
+      .slice(0, 15);
+
+    return new Response(JSON.stringify(results), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60",
+      },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+}
+
 async function handleYahooProxy(request) {
   const url = new URL(request.url);
   const symbol = url.searchParams.get("symbol") || "AAPL";
@@ -290,6 +335,11 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method.toUpperCase();
+
+    // Search API route
+    if (path === "/api/search" && method === "GET") {
+      return handleSearch(request);
+    }
 
     // Scanner API routes
     if (path === "/api/scanner/auto-refresh" && method === "GET") {
