@@ -142,37 +142,39 @@
   </div>
 
   <!-- Sidebar: Watchlists -->
-  <div class="w-80 bg-[#1e222d] flex flex-col shrink-0 border-l border-[#2a2e39]">
+  <div class="max-w-60 min-w-[200px] bg-[#1e222d] flex flex-col shrink-0 border-l border-[#2a2e39]">
 
     <!-- Watchlist Selector Toolbar -->
-    <div class="p-2 border-b border-[#2a2e39] flex items-center justify-between bg-[#171b26] space-x-2">
-      <select id="watchlist-select"
-              class="bg-[#2a2e39] text-white text-xs rounded px-2 py-1 flex-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
-      </select>
-      <div class="flex items-center space-x-1 shrink-0">
+    <div class="p-2 border-b border-[#2a2e39] bg-[#171b26] space-y-1.5">
+      <div>
+        <select id="watchlist-select"
+                class="w-full bg-[#2a2e39] text-white text-xs rounded px-2 py-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
+        </select>
+      </div>
+      <div class="flex items-center gap-1.5">
         <button id="new-wl-btn" title="Create New Watchlist"
-                class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold">+</button>
+                class="flex-1 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold text-center">+</button>
         <button id="move-wl-up-btn" title="Move Watchlist Up"
-                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">▲</button>
+                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▲</button>
         <button id="move-wl-down-btn" title="Move Watchlist Down"
-                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">▼</button>
+                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▼</button>
         <button id="rename-wl-btn" title="Rename Watchlist"
-                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded">✏️</button>
+                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">✏️</button>
         <button id="delete-wl-btn" title="Delete Watchlist"
-                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-red-900/50 text-red-400 rounded">🗑️</button>
+                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-red-900/50 text-red-400 rounded text-center">🗑️</button>
         <button id="refresh-scanner-btn" title="Refresh from TradingView Scanner"
-                class="text-xs px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded">↻</button>
+                class="flex-1 text-xs px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-center">↻</button>
       </div>
     </div>
 
     <!-- Watchlist Items Header -->
-    <div class="px-3 py-2 border-b border-[#2a2e39] flex items-center justify-between">
+    <div class="px-3 py-2 border-b border-[#2a2e39] flex items-center justify-between gap-2">
       <span class="font-bold text-xs text-gray-400 uppercase tracking-wider">Symbols</span>
-      <div class="flex items-center space-x-1">
+      <div class="flex items-center gap-1.5">
         <button id="add-section-btn" title="Add Section Header"
-                class="text-xs px-2 py-0.5 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-200 rounded">+ Section</button>
+                class="text-xs px-2 py-0.5 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-200 rounded whitespace-nowrap">+ Section</button>
         <button id="add-ticker-btn" title="Add Ticker"
-                class="text-xs px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold">+ Symbol</button>
+                class="text-xs px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold whitespace-nowrap">+ Symbol</button>
       </div>
     </div>
 
@@ -1089,7 +1091,7 @@
     localStorage.setItem('quantview_symbol', currentSymbol);
     const symbolDisplay = document.getElementById('symbol-display');
     if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
-    if (searchInput) searchInput.value = item.symbol;
+    if (searchInput) searchInput.value = '';
     closeSearch();
     loadData(currentSymbol, currentTimeframe);
   }
