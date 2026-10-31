@@ -188,24 +188,30 @@
 
     <!-- Watchlist Selector Toolbar -->
     <div class="p-2 border-b border-[#2a2e39] bg-[#171b26] space-y-1.5">
-      <div>
+      <div class="flex items-center gap-1.5">
         <select id="watchlist-select"
-                class="w-full bg-[#2a2e39] text-white text-xs rounded px-2 py-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
+                class="flex-1 min-w-0 bg-[#2a2e39] text-white text-xs rounded px-2 py-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
         </select>
+        <button id="move-wl-up-btn" title="Move Watchlist Up"
+                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▲</button>
+        <button id="move-wl-down-btn" title="Move Watchlist Down"
+                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▼</button>
       </div>
       <div class="flex items-center gap-1.5">
         <button id="new-wl-btn" title="Create New Watchlist"
                 class="flex-1 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold text-center">+</button>
-        <button id="move-wl-up-btn" title="Move Watchlist Up"
-                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▲</button>
-        <button id="move-wl-down-btn" title="Move Watchlist Down"
-                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▼</button>
         <button id="rename-wl-btn" title="Rename Watchlist"
                 class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">✏️</button>
         <button id="delete-wl-btn" title="Delete Watchlist"
                 class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-red-900/50 text-red-400 rounded text-center">🗑️</button>
         <button id="refresh-scanner-btn" title="Refresh from TradingView Scanner"
                 class="flex-1 text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-center">↻</button>
+        <button id="copy-wl-btn" title="Copy watchlist tickers"
+                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">⧉</button>
+        <button id="paste-wl-btn" title="Paste tickers into watchlist"
+                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">📋</button>
+        <button id="clear-wl-btn" title="Clear all tickers in watchlist"
+                class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-red-900/50 text-red-400 rounded text-center">🧹</button>
       </div>
     </div>
 
@@ -1094,6 +1100,87 @@
           console.error('Scanner refresh failed:', err);
           alert('Refresh failed: ' + err.message);
         }
+      };
+    }
+
+    const copyWlBtn = document.getElementById('copy-wl-btn');
+    if (copyWlBtn) {
+      copyWlBtn.onclick = async () => {
+        const active = getActiveWatchlist();
+        if (!active) return;
+        const EXCHANGE_SUFFIXES = new Set(['NS','BO','L','TO','AX','HK','T','SS','SZ','PA','DE','MI','SW','ST','OL','CO','HE','AS','BR','LS','MC','WA','AT','VI']);
+        const stripExchange = (sym) => {
+          const idx = sym.indexOf('.');
+          if (idx < 0) return sym;
+          const suffix = sym.slice(idx + 1).toUpperCase();
+          if (EXCHANGE_SUFFIXES.has(suffix)) return sym.slice(0, idx);
+          return sym;
+        };
+        const symbols = (active.items || []).filter(i => i.type === 'ticker').map(i => stripExchange(i.symbol));
+        const tickers = symbols.join('\\r\\n');
+        try {
+          const html = '<table><tbody>' + symbols.map(s => '<tr><td>' + s + '</td></tr>').join('') + '</tbody></table>';
+          if (window.ClipboardItem) {
+            const item = new ClipboardItem({
+              'text/plain': new Blob([tickers], { type: 'text/plain' }),
+              'text/html': new Blob([html], { type: 'text/html' })
+            });
+            await navigator.clipboard.write([item]);
+          } else {
+            await navigator.clipboard.writeText(tickers);
+          }
+          alert('Copied ' + symbols.length + ' tickers to clipboard.');
+        } catch (err) {
+          console.error('Copy failed:', err);
+          alert('Copy failed: ' + err.message);
+        }
+      };
+    }
+
+    const pasteWlBtn = document.getElementById('paste-wl-btn');
+    if (pasteWlBtn) {
+      pasteWlBtn.onclick = async () => {
+        const active = getActiveWatchlist();
+        if (!active) return;
+        let text = '';
+        try { text = await navigator.clipboard.readText(); } catch (e) { text = ''; }
+        if (!text) text = prompt('Paste ticker symbols (one per line or comma-separated):') || '';
+        if (!text) return;
+        const symbols = text.split(/[,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+        if (!symbols.length) return;
+        const suffixInput = prompt('Append exchange suffix to all? (e.g. .NS, .BO; leave blank for none)', '');
+        const suffix = suffixInput ? (suffixInput.trim().startsWith('.') ? suffixInput.trim().toUpperCase() : '.' + suffixInput.trim().toUpperCase()) : '';
+        const finalSymbols = symbols.map(s => (suffix && !s.includes('.') ? s + suffix : s));
+        let added = 0;
+        for (const sym of finalSymbols) {
+          try {
+            await watchlistApi(`/watchlists/${active.id}/items`, 'POST', { type: 'ticker', symbol: sym });
+            added++;
+          } catch (err) {
+            console.error('Failed to add', sym, err);
+          }
+        }
+        await loadWatchlists();
+        alert('Added ' + added + ' of ' + finalSymbols.length + ' tickers.');
+      };
+    }
+
+    const clearWlBtn = document.getElementById('clear-wl-btn');
+    if (clearWlBtn) {
+      clearWlBtn.onclick = async () => {
+        const active = getActiveWatchlist();
+        if (!active) return;
+        const tickers = (active.items || []).filter(i => i.type === 'ticker');
+        if (!tickers.length) { alert('No tickers to clear.'); return; }
+        if (!confirm('Remove all ' + tickers.length + ' tickers from this watchlist?')) return;
+        for (const item of tickers) {
+          try {
+            await watchlistApi(`/watchlists/${active.id}/items/${item.id}`, 'DELETE');
+          } catch (err) {
+            console.error('Failed to delete', item.id, err);
+          }
+        }
+        await loadWatchlists();
       };
     }
 
