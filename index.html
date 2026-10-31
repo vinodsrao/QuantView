@@ -62,15 +62,17 @@
     <div class="h-4 w-[1px] bg-[#363c4e]"></div>
 
     <!-- Symbol Header & Selector -->
-    <div class="flex items-center space-x-2">
-      <span id="symbol-display" class="font-semibold text-white text-base">AAPL</span>
-      <span id="symbol-name" class="text-xs text-gray-400 truncate max-w-[300px]">--</span>
-      <span id="data-source-badge"
-            class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 border border-green-700/50 font-mono">PROXY LIVE</span>
+    <div class="flex flex-col justify-center leading-tight w-[260px]">
+      <div class="flex items-center space-x-2">
+        <span id="symbol-display" class="font-semibold text-white text-sm">AAPL</span>
+      </div>
+      <span id="symbol-name" class="text-[10px] text-gray-400 truncate w-[260px]">--</span>
     </div>
+    <span id="data-source-badge"
+          class="inline-block w-3 h-3 rounded-full bg-green-700 border border-green-500" title="Proxy live"></span>
 
     <!-- Symbol Search -->
-    <div class="flex-1 max-w-md mx-4">
+    <div class="w-96 mx-4">
       <div class="relative">
         <input
           id="symbol-search"
@@ -84,17 +86,6 @@
       </div>
     </div>
 
-    <!-- Timeframe Buttons -->
-    <div class="flex items-center space-x-1 ml-4 bg-[#131722] p-0.5 rounded border border-[#2a2e39]">
-      <button class="tf-btn px-2.5 py-1 text-xs rounded font-medium hover:bg-[#2a2e39] text-gray-400"
-              data-tf="1d">1D</button>
-      <button class="tf-btn px-2.5 py-1 text-xs rounded font-medium hover:bg-[#2a2e39] text-gray-400"
-              data-tf="1w">1W</button>
-      <button class="tf-btn px-2.5 py-1 text-xs rounded font-medium hover:bg-[#2a2e39] text-gray-400"
-              data-tf="1M">1M</button>
-      <button class="tf-btn px-2.5 py-1 text-xs rounded font-medium hover:bg-[#2a2e39] text-gray-400"
-              data-tf="3M">3M</button>
-    </div>
   </div>
 
   <!-- Live Candle Legend HUD -->
@@ -112,34 +103,85 @@
 <!-- Main App Layout -->
 <div class="flex-1 flex overflow-hidden">
 
-  <!-- Chart Column -->
-  <div class="flex-1 flex flex-col overflow-hidden bg-[#131722] border-r border-[#2a2e39]">
+    <!-- Chart Column -->
+    <div class="flex-1 flex flex-col overflow-hidden bg-[#131722] border-r border-[#2a2e39]">
 
-    <!-- Top Technical Performance Bar -->
-    <div class="h-8 border-b border-[#2a2e39] bg-[#1a1e29] px-4 flex items-center justify-between text-xs font-mono overflow-x-auto whitespace-nowrap shrink-0">
-      <div class="flex items-center space-x-4">
-        <div><span class="text-gray-400">1Y Ret:</span> <span id="m-1y" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">3Y:</span> <span id="m-3y" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">5Y:</span> <span id="m-5y" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">7Y:</span> <span id="m-7y" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">10Y:</span> <span id="m-10y" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">Pivot DD:</span> <span id="m-pdd" class="font-bold text-[#f5279c]">--</span></div>
-        <div><span class="text-gray-400">10YH DD:</span> <span id="m-athdd" class="font-bold text-[#f5279c]">--</span></div>
-        <div><span class="text-gray-400">ATR%:</span> <span id="m-atr" class="font-bold text-amber-400">--</span></div>
-        <div><span class="text-gray-400">Chg:</span> <span id="m-chg" class="font-bold text-white">--</span></div>
-        <div><span class="text-gray-400">Avg Vol:</span> <span id="m-avgvol" class="font-bold text-purple-400">--</span></div>
+      <!-- Three Chart Panes: top row two charts side-by-side, bottom row one chart full width -->
+      <div class="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div class="flex-[35] flex flex-row overflow-hidden min-h-0 border-b border-[#2a2e39]">
+          <div class="flex-1 flex flex-col overflow-hidden border-r border-[#2a2e39] min-h-0" data-pane="0">
+          <div class="h-7 border-b border-[#2a2e39] bg-[#1a1e29] px-2 flex items-center justify-between shrink-0 gap-2">
+            <div class="flex items-center space-x-2 min-w-0 overflow-hidden">
+              <span class="text-xs text-gray-400 font-bold shrink-0">Chart 1</span>
+              <div id="pane-0-metrics" class="flex items-center space-x-2 text-[10px] font-mono overflow-hidden whitespace-nowrap">
+                <span class="text-gray-400">ATR% <span data-m="atr" class="text-amber-400">--</span></span>
+                <span class="text-gray-400">Chg <span data-m="chg" class="text-white">--</span></span>
+                <span class="text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1 bg-[#131722] p-0.5 rounded border border-[#2a2e39] tf-group" data-pane="0">
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1d">1D</button>
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1w">1W</button>
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1M">1M</button>
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="3M">3M</button>
+              </div>
+            </div>
+            <div id="pane-0-price" class="relative flex-[4] min-h-0"></div>
+            <div class="h-[1px] bg-[#2a2e39] w-full shrink-0"></div>
+            <div id="pane-0-volume" class="relative flex-1 min-h-0"></div>
+          </div>
+          <div class="flex-1 flex flex-col overflow-hidden min-h-0" data-pane="1">
+          <div class="h-7 border-b border-[#2a2e39] bg-[#1a1e29] px-2 flex items-center justify-between shrink-0 gap-2">
+            <div class="flex items-center space-x-2 min-w-0 overflow-hidden">
+              <span class="text-xs text-gray-400 font-bold shrink-0">Chart 2</span>
+              <div id="pane-1-metrics" class="flex items-center space-x-2 text-[10px] font-mono overflow-hidden whitespace-nowrap">
+                <span class="text-gray-400">ATR% <span data-m="atr" class="text-amber-400">--</span></span>
+                <span class="text-gray-400">Chg <span data-m="chg" class="text-white">--</span></span>
+                <span class="text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1 bg-[#131722] p-0.5 rounded border border-[#2a2e39] tf-group" data-pane="1">
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1d">1D</button>
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1w">1W</button>
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1M">1M</button>
+                <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="3M">3M</button>
+              </div>
+            </div>
+            <div id="pane-1-price" class="relative flex-[4] min-h-0"></div>
+            <div class="h-[1px] bg-[#2a2e39] w-full shrink-0"></div>
+            <div id="pane-1-volume" class="relative flex-1 min-h-0"></div>
+          </div>
+        </div>
+        <div class="flex-[65] flex flex-col overflow-hidden min-h-0" data-pane="2">
+          <div class="h-7 border-b border-[#2a2e39] bg-[#1a1e29] px-2 flex items-center justify-between shrink-0 gap-2">
+            <div class="flex items-center space-x-2 min-w-0 overflow-hidden">
+              <span class="text-xs text-gray-400 font-bold shrink-0">Chart 3</span>
+              <div id="pane-2-metrics" class="flex items-center space-x-2 text-[10px] font-mono overflow-hidden whitespace-nowrap">
+                <span class="text-gray-400">1Y <span data-m="ret1y" class="text-white">--</span></span>
+                <span class="text-gray-400">3Y <span data-m="cagr3y" class="text-white">--</span></span>
+                <span class="text-gray-400">5Y <span data-m="cagr5y" class="text-white">--</span></span>
+                <span class="text-gray-400">7Y <span data-m="cagr7y" class="text-white">--</span></span>
+                <span class="text-gray-400">10Y <span data-m="cagr10y" class="text-white">--</span></span>
+                <span class="text-gray-400">PivotDD <span data-m="pivotDD" class="text-[#f5279c]">--</span></span>
+                <span class="text-gray-400">ATHDD <span data-m="athDD" class="text-[#f5279c]">--</span></span>
+                <span class="text-gray-400">ATR% <span data-m="atr" class="text-amber-400">--</span></span>
+                <span class="text-gray-400">Chg <span data-m="chg" class="text-white">--</span></span>
+                <span class="text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1 bg-[#131722] p-0.5 rounded border border-[#2a2e39] tf-group" data-pane="2">
+              <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1d">1D</button>
+              <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1w">1W</button>
+              <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="1M">1M</button>
+              <button class="tf-btn px-2 py-0.5 text-[10px] rounded font-medium hover:bg-[#2a2e39] text-gray-400" data-tf="3M">3M</button>
+            </div>
+          </div>
+            <div id="pane-2-price" class="relative flex-[4] min-h-0"></div>
+          <div class="h-[1px] bg-[#2a2e39] w-full shrink-0"></div>
+            <div id="pane-2-volume" class="relative flex-1 min-h-0"></div>
+        </div>
       </div>
     </div>
-
-    <!-- Main Candlestick Chart Pane -->
-    <div id="price-chart-container" class="relative"></div>
-
-    <!-- Separator Border -->
-    <div class="h-[1px] bg-[#2a2e39] w-full shrink-0"></div>
-
-    <!-- Dedicated Synchronized Volume Chart Pane -->
-    <div id="volume-chart-container" class="relative shrink-0"></div>
-  </div>
 
   <!-- Sidebar: Watchlists -->
   <div class="max-w-60 min-w-[200px] bg-[#1e222d] flex flex-col shrink-0 border-l border-[#2a2e39]">
@@ -163,7 +205,7 @@
         <button id="delete-wl-btn" title="Delete Watchlist"
                 class="flex-1 text-xs px-2 py-1 bg-[#2a2e39] hover:bg-red-900/50 text-red-400 rounded text-center">🗑️</button>
         <button id="refresh-scanner-btn" title="Refresh from TradingView Scanner"
-                class="flex-1 text-xs px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-center">↻</button>
+                class="flex-1 text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-center">↻</button>
       </div>
     </div>
 
@@ -192,9 +234,11 @@
     ? 'http://localhost:8787'
     : 'https://stock-proxy.vinodsrao.workers.dev';
   let currentSymbol = localStorage.getItem('quantview_symbol') || 'AAPL';
-  let currentTimeframe = localStorage.getItem('quantview_tf') || '1d';
-  let chartData = [];
-  let priceChart, volumeChart, candleSeries, volumeSeries;
+  const NUM_PANES = 3;
+  const panes = [];
+  function defaultTfForPane(i) { return ['1d', '1w', '1M'][i] || '1d'; }
+  function paneTfStorageKey(i) { return 'quantview_tf_pane_' + i; }
+  function getPaneTf(i) { return localStorage.getItem(paneTfStorageKey(i)) || defaultTfForPane(i); }
 
   const TIMEFRAME_MAP = {
     '1d': { range: '10y', interval: '1d', label: '1D' },
@@ -325,9 +369,9 @@
     return '$' + (abs / 1e6).toFixed(2) + 'M';
   }
 
-  function calculatePineMetrics(data, zThreshold = 1.0) {
-    const len = dynamicLookback(currentTimeframe);
-    const isInr = currentSymbol.endsWith('.NS');
+  function calculatePineMetrics(data, tfKey, symbol, zThreshold = 1.0) {
+    const len = dynamicLookback(tfKey);
+    const isInr = String(symbol || currentSymbol).endsWith('.NS');
     const volumes = data.map(d => d.volume);
     let runningAthPeak = 0;
 
@@ -372,7 +416,7 @@
 
       const volSlice = data.slice(Math.max(0, i - len + 1), i + 1);
       const avgCurrencyVolPerBar = volSlice.reduce((sum, d) => sum + (d.close * (d.volume || 0)), 0) / volSlice.length;
-      const avgCurrencyVol = avgCurrencyVolPerBar / tradingDaysPerBar(currentTimeframe);
+      const avgCurrencyVol = avgCurrencyVolPerBar / tradingDaysPerBar(tfKey);
 
       const mintick = 0.0001;
       const zScore = (bar.volume - avgVol) / Math.max(stdVol, mintick);
@@ -467,93 +511,115 @@
   }
 
   // 3. CHART INITIALIZATION
-  function initCharts() {
-    const priceContainer = document.getElementById('price-chart-container');
-    const volumeContainer = document.getElementById('volume-chart-container');
+  function activateTfButton(btn) {
+    btn.classList.add('bg-[#2a2e39]', 'text-blue-400');
+    btn.classList.remove('text-gray-400');
+  }
+  function deactivateTfButton(btn) {
+    btn.classList.remove('bg-[#2a2e39]', 'text-blue-400');
+    btn.classList.add('text-gray-400');
+  }
 
-    if (!priceContainer || !volumeContainer) return;
+  function initAllCharts() {
+    for (let i = 0; i < NUM_PANES; i++) createPane(i);
+  }
 
-    const pHeight = priceContainer.clientHeight || 400;
-    const vHeight = volumeContainer.clientHeight || 128;
+  function createPane(i) {
+    const priceContainer = document.getElementById('pane-' + i + '-price');
+    const volumeContainer = document.getElementById('pane-' + i + '-volume');
+    if (!priceContainer || !volumeContainer) return null;
 
-    priceChart = LightweightCharts.createChart(priceContainer, {
-      layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
+    const pane = {
+      i,
+      tf: getPaneTf(i),
+      priceContainer,
+      volumeContainer,
+      priceChart: null,
+      volumeChart: null,
+      candleSeries: null,
+      volumeSeries: null,
+      chartData: [],
+    };
+
+    const pHeight = priceContainer.clientHeight || 300;
+    const vHeight = volumeContainer.clientHeight || 80;
+
+    pane.priceChart = LightweightCharts.createChart(priceContainer, {
+      layout: { background: { color: '#131722' }, textColor: '#d1d4dc', fontSize: 8 },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
       timeScale: { rightOffset: 5, barSpacing: 10 },
       height: pHeight,
-      rightPriceScale: { minimumWidth: 75, mode: 1 },
+      rightPriceScale: { minimumWidth: 30, mode: 1 },
       watermark: {
         visible: true,
-        fontSize: 100,
+        fontSize: 48,
         horzAlign: 'center',
         vertAlign: 'center',
         color: 'rgba(255, 255, 255, 0.06)',
-        text: currentSymbol + ' • ' + (TIMEFRAME_MAP[currentTimeframe]?.label || '1D'),
+        text: currentSymbol + ' • ' + (TIMEFRAME_MAP[pane.tf]?.label || '1D'),
         fontFamily: 'sans-serif'
       }
     });
 
-    volumeChart = LightweightCharts.createChart(volumeContainer, {
-      layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
+    pane.volumeChart = LightweightCharts.createChart(volumeContainer, {
+      layout: { background: { color: '#131722' }, textColor: '#d1d4dc', fontSize: 8 },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
       timeScale: { rightOffset: 5, barSpacing: 10 },
       height: vHeight,
-      rightPriceScale: { minimumWidth: 75, mode: 0 }
+      rightPriceScale: { minimumWidth: 30, mode: 0 }
     });
 
-    candleSeries = priceChart.addCandlestickSeries();
-    volumeSeries = volumeChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
+    pane.candleSeries = pane.priceChart.addCandlestickSeries();
+    pane.volumeSeries = pane.volumeChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
 
-    priceChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-      volumeChart.timeScale().setVisibleLogicalRange(range);
+    pane.priceChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      pane.volumeChart.timeScale().setVisibleLogicalRange(range);
     });
-    volumeChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-      priceChart.timeScale().setVisibleLogicalRange(range);
+    pane.volumeChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      pane.priceChart.timeScale().setVisibleLogicalRange(range);
     });
 
-    priceChart.subscribeCrosshairMove(param => updateStatusBar(param));
-    volumeChart.subscribeCrosshairMove(param => updateStatusBar(param));
+    pane.priceChart.subscribeCrosshairMove(param => updateStatusBar(param, pane));
+    pane.volumeChart.subscribeCrosshairMove(param => updateStatusBar(param, pane));
 
-    setupTimeframeListeners();
-  }
-
-  function setupTimeframeListeners() {
-    const buttons = document.querySelectorAll('.tf-btn');
-
+    const group = document.querySelector('.tf-group[data-pane="' + i + '"]');
+    const buttons = group ? group.querySelectorAll('.tf-btn') : [];
     buttons.forEach(btn => {
       const tf = btn.getAttribute('data-tf');
-      if (tf === currentTimeframe) {
-        btn.classList.add('bg-[#2a2e39]', 'text-blue-400');
-        btn.classList.remove('text-gray-400');
-      } else {
-        btn.classList.remove('bg-[#2a2e39]', 'text-blue-400');
-        btn.classList.add('text-gray-400');
-      }
-
-      btn.addEventListener('click', (e) => {
-        buttons.forEach(b => {
-          b.classList.remove('bg-[#2a2e39]', 'text-blue-400');
-          b.classList.add('text-gray-400');
-        });
-
-        e.target.classList.add('bg-[#2a2e39]', 'text-blue-400');
-        e.target.classList.remove('text-gray-400');
-
-        currentTimeframe = e.target.getAttribute('data-tf');
-        localStorage.setItem('quantview_tf', currentTimeframe);
-
-        loadData(currentSymbol, currentTimeframe);
+      if (tf === pane.tf) activateTfButton(btn); else deactivateTfButton(btn);
+      btn.addEventListener('click', () => {
+        buttons.forEach(deactivateTfButton);
+        activateTfButton(btn);
+        pane.tf = tf;
+        localStorage.setItem(paneTfStorageKey(i), tf);
+        loadPaneData(pane, currentSymbol, tf);
       });
     });
+
+    const ro = new ResizeObserver(() => {
+      const ph = priceContainer.clientHeight || 1;
+      const vh = volumeContainer.clientHeight || 1;
+      pane.priceChart.applyOptions({ height: ph });
+      pane.volumeChart.applyOptions({ height: vh });
+    });
+    ro.observe(priceContainer);
+    ro.observe(volumeContainer);
+
+    panes.push(pane);
+    return pane;
   }
 
-  function updateStatusBar(param) {
-    if (!param || !param.time || !chartData.length) {
-      if (chartData.length) renderMetricsForBar(chartData[chartData.length - 1]);
+  function updateStatusBar(param, pane) {
+    const data = pane ? pane.chartData : (panes[0] ? panes[0].chartData : []);
+    if (!param || !param.time || !data.length) {
+      if (data.length) renderMetricsForBar(data[data.length - 1]);
       return;
     }
-    const bar = chartData.find(d => d.time === param.time);
-    if (bar) renderMetricsForBar(bar);
+    const bar = data.find(d => d.time === param.time);
+    if (bar) {
+      renderMetricsForBar(bar);
+      if (pane) renderPaneMetrics(pane, bar);
+    }
   }
 
   function renderMetricsForBar(bar) {
@@ -592,38 +658,62 @@
       }
     }
 
-    setReturnColor('m-1y', bar.ret1y);
-    setReturnColor('m-3y', bar.cagr3y);
-    setReturnColor('m-5y', bar.cagr5y);
-    setReturnColor('m-7y', bar.cagr7y);
-    setReturnColor('m-10y', bar.cagr10y);
-    setReturnColor('m-pdd', bar.pivotDD);
-    setReturnColor('m-athdd', bar.athDD);
-    document.getElementById('m-atr').innerText = bar.atrPct + '%';
-    setReturnColor('m-chg', bar.chg || '--');
-    document.getElementById('m-avgvol').innerText = bar.avgVolCur || '--';
+  }
+
+  function colorizeReturnEl(el, val) {
+    if (!el) return;
+    const num = parseFloat(val);
+    const NEON_GREEN = '#9cf527';
+    const NEON_PINK = '#f5279c';
+    if (val === '--' || isNaN(num) || num === 0) {
+      el.style.color = '';
+    } else if (num > 0) {
+      el.style.color = NEON_GREEN;
+    } else {
+      el.style.color = NEON_PINK;
+    }
+  }
+
+  function renderPaneMetrics(pane, bar) {
+    if (!pane || !bar) return;
+    const root = document.getElementById('pane-' + pane.i + '-metrics');
+    if (!root) return;
+    const set = (key, val) => {
+      const el = root.querySelector('[data-m="' + key + '"]');
+      if (el) el.textContent = val;
+    };
+    if (pane.i === 0 || pane.i === 1) {
+      set('atr', bar.atrPct + '%');
+      set('chg', bar.chg);
+      set('avgvol', bar.avgVolCur || '--');
+      colorizeReturnEl(root.querySelector('[data-m="chg"]'), bar.chg);
+    } else {
+      set('ret1y', bar.ret1y);
+      set('cagr3y', bar.cagr3y);
+      set('cagr5y', bar.cagr5y);
+      set('cagr7y', bar.cagr7y);
+      set('cagr10y', bar.cagr10y);
+      set('pivotDD', bar.pivotDD);
+      set('athDD', bar.athDD);
+      set('atr', bar.atrPct + '%');
+      set('chg', bar.chg);
+      set('avgvol', bar.avgVolCur || '--');
+      ['ret1y','cagr3y','cagr5y','cagr7y','cagr10y','pivotDD','athDD','chg'].forEach(k => {
+        colorizeReturnEl(root.querySelector('[data-m="' + k + '"]'), bar[k]);
+      });
+    }
   }
 
   // 4. DATA FETCHING ENGINE & YAHOO METADATA WATERMARK
-  async function loadData(symbol, tfKey = '1d') {
+  async function loadPaneData(pane, symbol, tfKey) {
+    if (!pane) return;
     const tfConfig = TIMEFRAME_MAP[tfKey] || TIMEFRAME_MAP['1d'];
     const badge = document.getElementById('data-source-badge');
-    const symbolDisplayPre = document.getElementById('symbol-display');
-    if (symbolDisplayPre) symbolDisplayPre.innerText = symbol;
-    const symbolNamePre = document.getElementById('symbol-name');
-    if (symbolNamePre) symbolNamePre.innerText = '…';
-    if (badge) {
-      badge.innerText = 'PROXY FETCHING...';
-      badge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-400 border border-amber-700/50 font-mono';
-    }
 
     try {
       const url = `${WORKER_URL}?symbol=${encodeURIComponent(symbol)}&range=${tfConfig.range}&interval=${tfConfig.interval}`;
       const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`Proxy error: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Proxy error: ${response.statusText}`);
 
       const data = await response.json();
       const result = data.chart.result[0];
@@ -634,24 +724,24 @@
       const returnedGranularity = meta.dataGranularity || meta.granularity || tfConfig.interval;
       const periodLabel = formatGranularityLabel(returnedGranularity);
 
-      const symbolDisplay = document.getElementById('symbol-display');
-      if (symbolDisplay) symbolDisplay.innerText = returnedSymbol;
-      const symbolName = document.getElementById('symbol-name');
-      if (symbolName) symbolName.innerText = shortName || '--';
-
-      if (priceChart) {
-        priceChart.applyOptions({
-          watermark: {
-            visible: true,
-            text: `${returnedSymbol} • ${periodLabel}`,
-            color: 'rgba(255, 255, 255, 0.06)',
-            fontSize: 100,
-            horzAlign: 'center',
-            vertAlign: 'center',
-            fontFamily: 'sans-serif'
-          }
-        });
+      if (pane.i === 0) {
+        const symbolDisplay = document.getElementById('symbol-display');
+        if (symbolDisplay) symbolDisplay.innerText = returnedSymbol;
+        const symbolName = document.getElementById('symbol-name');
+        if (symbolName) symbolName.innerText = shortName || '--';
       }
+
+      pane.priceChart.applyOptions({
+        watermark: {
+          visible: true,
+          text: `${returnedSymbol} • ${periodLabel}`,
+          color: 'rgba(255, 255, 255, 0.06)',
+          fontSize: 48,
+          horzAlign: 'center',
+          vertAlign: 'center',
+          fontFamily: 'sans-serif'
+        }
+      });
 
       const timestamps = result.timestamp || [];
       const quote = result.indicators.quote[0];
@@ -659,29 +749,29 @@
       const raw = [];
       const timestampMap = new Map();
 
-      for (let i = 0; i < timestamps.length; i++) {
+      for (let i2 = 0; i2 < timestamps.length; i2++) {
         if (
-          quote.open[i] != null &&
-          quote.high[i] != null &&
-          quote.low[i] != null &&
-          quote.close[i] != null
+          quote.open[i2] != null &&
+          quote.high[i2] != null &&
+          quote.low[i2] != null &&
+          quote.close[i2] != null
         ) {
-          const normalizedTime = normalizeTimestamp(timestamps[i], tfKey);
+          const normalizedTime = normalizeTimestamp(timestamps[i2], tfKey);
 
           if (timestampMap.has(normalizedTime)) {
             const existingBar = timestampMap.get(normalizedTime);
-            existingBar.high = Math.max(existingBar.high, quote.high[i]);
-            existingBar.low = Math.min(existingBar.low, quote.low[i]);
-            existingBar.close = quote.close[i];
-            existingBar.volume += (quote.volume[i] || 0);
+            existingBar.high = Math.max(existingBar.high, quote.high[i2]);
+            existingBar.low = Math.min(existingBar.low, quote.low[i2]);
+            existingBar.close = quote.close[i2];
+            existingBar.volume += (quote.volume[i2] || 0);
           } else {
             const newBar = {
               time: normalizedTime,
-              open: quote.open[i],
-              high: quote.high[i],
-              low: quote.low[i],
-              close: quote.close[i],
-              volume: quote.volume[i] || 0
+              open: quote.open[i2],
+              high: quote.high[i2],
+              low: quote.low[i2],
+              close: quote.close[i2],
+              volume: quote.volume[i2] || 0
             };
             timestampMap.set(normalizedTime, newBar);
             raw.push(newBar);
@@ -689,9 +779,9 @@
         }
       }
 
-      chartData = calculatePineMetrics(raw);
+      pane.chartData = calculatePineMetrics(raw, tfKey, symbol);
 
-      candleSeries.setData(chartData.map(d => ({
+      pane.candleSeries.setData(pane.chartData.map(d => ({
         time: d.time,
         open: d.open,
         high: d.high,
@@ -702,40 +792,51 @@
         borderColor: d.borderColor
       })));
 
-      volumeSeries.setData(chartData.map(d => ({
+      pane.volumeSeries.setData(pane.chartData.map(d => ({
         time: d.time,
         value: d.volume,
         color: d.color
       })));
 
-      const totalBars = chartData.length;
+      const totalBars = pane.chartData.length;
       if (totalBars > 0) {
-        let visibleCount = 120;
+        let visibleCount = 63;
         if (tfKey === '1w') visibleCount = 52;
-        if (tfKey === '1M') visibleCount = 48;
-        if (tfKey === '3M') visibleCount = 20;
+        if (tfKey === '1M') visibleCount = 60;
+        if (tfKey === '3M') visibleCount = 40;
 
         const logicalRange = {
           from: totalBars - Math.min(totalBars, visibleCount),
           to: totalBars + 2
         };
-        priceChart.timeScale().setVisibleLogicalRange(logicalRange);
-        volumeChart.timeScale().setVisibleLogicalRange(logicalRange);
+        pane.priceChart.timeScale().setVisibleLogicalRange(logicalRange);
+        pane.volumeChart.timeScale().setVisibleLogicalRange(logicalRange);
       }
 
-      renderMetricsForBar(chartData[chartData.length - 1]);
+      if (pane.chartData.length) {
+        renderPaneMetrics(pane, pane.chartData[pane.chartData.length - 1]);
+      }
+      if (pane.i === 0 && pane.chartData.length) {
+        renderMetricsForBar(pane.chartData[pane.chartData.length - 1]);
+      }
 
       if (badge) {
-        badge.innerText = 'PROXY LIVE';
-        badge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 border border-green-700/50 font-mono';
+        badge.innerText = '';
+        badge.className = 'inline-block w-3 h-3 rounded-full bg-green-700 border border-green-500';
+        badge.title = 'Proxy live';
       }
     } catch (err) {
       console.error("Error loading proxy data:", err);
       if (badge) {
-        badge.innerText = 'FETCH ERROR';
-        badge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-red-900/50 text-red-400 border border-red-700/50 font-mono';
+        badge.innerText = '';
+        badge.className = 'inline-block w-3 h-3 rounded-full bg-red-700 border border-red-500';
+        badge.title = 'Fetch error';
       }
     }
+  }
+
+  async function loadAllPanes(symbol) {
+    await Promise.all(panes.map(p => loadPaneData(p, symbol, p.tf)));
   }
 
   // 5. WATCHLIST ENGINE (Cloudflare D1-backed)
@@ -789,7 +890,7 @@
           currentSymbol = item.symbol;
           localStorage.setItem('quantview_symbol', currentSymbol);
           document.getElementById('symbol-display').innerText = item.symbol;
-          loadData(item.symbol, currentTimeframe);
+          loadAllPanes(currentSymbol);
           renderActiveWatchlist();
         };
 
@@ -1093,7 +1194,7 @@
     if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
     if (searchInput) searchInput.value = '';
     closeSearch();
-    loadData(currentSymbol, currentTimeframe);
+    loadAllPanes(currentSymbol);
   }
 
   function setupSearchControls() {
@@ -1137,7 +1238,7 @@
             const symbolDisplay = document.getElementById('symbol-display');
             if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
             closeSearch();
-            loadData(currentSymbol, currentTimeframe);
+            loadAllPanes(currentSymbol);
           }
         }
       } else if (e.key === 'Escape') {
@@ -1154,14 +1255,14 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    initCharts();
+    initAllCharts();
     setupWatchlistControls();
     setupSearchControls();
 
     const symbolDisplay = document.getElementById('symbol-display');
     if (symbolDisplay) symbolDisplay.innerText = currentSymbol;
 
-    loadData(currentSymbol, currentTimeframe);
+    loadAllPanes(currentSymbol);
     try {
       await loadWatchlists();
     } catch {
