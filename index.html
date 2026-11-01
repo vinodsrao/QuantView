@@ -1354,6 +1354,21 @@
         closeSearch();
       }
     });
+
+    document.addEventListener('keydown', (e) => {
+      if (!searchInput) return;
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.length !== 1) return;
+      searchInput.focus();
+      const start = searchInput.selectionStart != null ? searchInput.selectionStart : searchInput.value.length;
+      const end = searchInput.selectionEnd != null ? searchInput.selectionEnd : searchInput.value.length;
+      searchInput.value = searchInput.value.slice(0, start) + e.key + searchInput.value.slice(end);
+      const pos = start + 1;
+      searchInput.selectionStart = searchInput.selectionEnd = pos;
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      e.preventDefault();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
