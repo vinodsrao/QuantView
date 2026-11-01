@@ -588,6 +588,15 @@
     pane.priceChart.subscribeCrosshairMove(param => updateStatusBar(param, pane));
     pane.volumeChart.subscribeCrosshairMove(param => updateStatusBar(param, pane));
 
+    const resetPaneMetrics = () => {
+      if (pane.chartData.length) {
+        renderMetricsForBar(pane.chartData[pane.chartData.length - 1]);
+        renderPaneMetrics(pane, pane.chartData[pane.chartData.length - 1]);
+      }
+    };
+    priceContainer.addEventListener('mouseleave', resetPaneMetrics);
+    volumeContainer.addEventListener('mouseleave', resetPaneMetrics);
+
     const group = document.querySelector('.tf-group[data-pane="' + i + '"]');
     const buttons = group ? group.querySelectorAll('.tf-btn') : [];
     buttons.forEach(btn => {
@@ -618,13 +627,19 @@
   function updateStatusBar(param, pane) {
     const data = pane ? pane.chartData : (panes[0] ? panes[0].chartData : []);
     if (!param || !param.time || !data.length) {
-      if (data.length) renderMetricsForBar(data[data.length - 1]);
+      if (data.length) {
+        renderMetricsForBar(data[data.length - 1]);
+        if (pane) renderPaneMetrics(pane, data[data.length - 1]);
+      }
       return;
     }
     const bar = data.find(d => d.time === param.time);
     if (bar) {
       renderMetricsForBar(bar);
       if (pane) renderPaneMetrics(pane, bar);
+    } else if (data.length) {
+      renderMetricsForBar(data[data.length - 1]);
+      if (pane) renderPaneMetrics(pane, data[data.length - 1]);
     }
   }
 
