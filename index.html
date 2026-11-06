@@ -911,6 +911,9 @@
           currentSymbol = item.symbol;
           localStorage.setItem('quantview_symbol', currentSymbol);
           document.getElementById('symbol-display').innerText = item.symbol;
+          const active = getActiveWatchlist();
+          const tickers = (active?.items || []).filter(i => i.type === 'ticker');
+          wlSelectedIndex = tickers.findIndex(t => t.symbol === item.symbol);
           loadAllPanes(currentSymbol);
           renderActiveWatchlist();
         };
@@ -1027,6 +1030,8 @@
       await loadWatchlists();
     }
   }
+
+  let wlSelectedIndex = -1;
 
   function setupWatchlistControls() {
     const select = document.getElementById('watchlist-select');
@@ -1232,6 +1237,26 @@
         }
       };
     }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      const active = getActiveWatchlist();
+      if (!active) return;
+      const tickers = (active.items || []).filter(i => i.type === 'ticker');
+      if (!tickers.length) return;
+      e.preventDefault();
+      if (wlSelectedIndex < 0) wlSelectedIndex = tickers.findIndex(t => t.symbol === currentSymbol);
+      if (e.key === 'ArrowDown') wlSelectedIndex = (wlSelectedIndex + 1) % tickers.length;
+      else wlSelectedIndex = (wlSelectedIndex - 1 + tickers.length) % tickers.length;
+      const sym = tickers[wlSelectedIndex].symbol;
+      currentSymbol = sym;
+      localStorage.setItem('quantview_symbol', currentSymbol);
+      const sd = document.getElementById('symbol-display');
+      if (sd) sd.innerText = currentSymbol;
+      loadAllPanes(currentSymbol);
+      renderActiveWatchlist();
+    });
   }
 
   // Search functions
