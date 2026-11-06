@@ -1240,12 +1240,24 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== ' ') return;
+      e.preventDefault();
+      if (e.key === ' ') {
+        if (watchlists.length < 2) return;
+        const idx = watchlists.findIndex(w => w.id === activeWatchlistId);
+        const newIdx = (idx + 1) % watchlists.length;
+        activeWatchlistId = watchlists[newIdx].id;
+        saveActiveWatchlistId();
+        wlSelectedIndex = -1;
+        renderWatchlistSelector();
+        renderActiveWatchlist();
+        return;
+      }
+
       const active = getActiveWatchlist();
       if (!active) return;
       const tickers = (active.items || []).filter(i => i.type === 'ticker');
       if (!tickers.length) return;
-      e.preventDefault();
       if (wlSelectedIndex < 0) wlSelectedIndex = tickers.findIndex(t => t.symbol === currentSymbol);
       if (e.key === 'ArrowDown') wlSelectedIndex = (wlSelectedIndex + 1) % tickers.length;
       else wlSelectedIndex = (wlSelectedIndex - 1 + tickers.length) % tickers.length;
@@ -1384,7 +1396,7 @@
       if (!searchInput) return;
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key.length !== 1) return;
+      if (e.key.length !== 1 || e.key === ' ') return;
       searchInput.focus();
       const start = searchInput.selectionStart != null ? searchInput.selectionStart : searchInput.value.length;
       const end = searchInput.selectionEnd != null ? searchInput.selectionEnd : searchInput.value.length;
