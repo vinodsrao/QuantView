@@ -555,7 +555,7 @@
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
       timeScale: { rightOffset: 5, barSpacing: 10 },
       height: pHeight,
-      rightPriceScale: { minimumWidth: 30, mode: 1 },
+      rightPriceScale: { minimumWidth: 100, mode: 1 },
       watermark: {
         visible: true,
         fontSize: 48,
@@ -572,17 +572,24 @@
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
       timeScale: { rightOffset: 5, barSpacing: 10 },
       height: vHeight,
-      rightPriceScale: { minimumWidth: 30, mode: 0 }
+      rightPriceScale: { minimumWidth: 100, mode: 0 }
     });
 
     pane.candleSeries = pane.priceChart.addCandlestickSeries();
     pane.volumeSeries = pane.volumeChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
 
+    let syncingRange = false;
     pane.priceChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (syncingRange || !range) return;
+      syncingRange = true;
       pane.volumeChart.timeScale().setVisibleLogicalRange(range);
+      syncingRange = false;
     });
     pane.volumeChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (syncingRange || !range) return;
+      syncingRange = true;
       pane.priceChart.timeScale().setVisibleLogicalRange(range);
+      syncingRange = false;
     });
 
     pane.priceChart.subscribeCrosshairMove(param => updateStatusBar(param, pane));
@@ -611,12 +618,13 @@
       });
     });
 
-    const ro = new ResizeObserver(() => {
-      const ph = priceContainer.clientHeight || 1;
-      const vh = volumeContainer.clientHeight || 1;
-      pane.priceChart.applyOptions({ height: ph });
-      pane.volumeChart.applyOptions({ height: vh });
-    });
+     const ro = new ResizeObserver(() => {
+       const ph = priceContainer.clientHeight || 1;
+       const vh = volumeContainer.clientHeight || 1;
+       pane.priceChart.applyOptions({ height: ph });
+       pane.volumeChart.applyOptions({ height: vh });
+       syncPaneScaleWidths(pane);
+     });
     ro.observe(priceContainer);
     ro.observe(volumeContainer);
 
@@ -726,7 +734,18 @@
   }
 
   // 4. DATA FETCHING ENGINE & YAHOO METADATA WATERMARK
-  async function loadPaneData(pane, symbol, tfKey) {
+   function syncPaneScaleWidths(pane) {
+     if (!pane) return;
+     requestAnimationFrame(() => {
+       const pw = pane.priceChart.priceScale('right').width();
+       const vw = pane.volumeChart.priceScale('right').width();
+       const w = Math.max(pw, vw, 100);
+       pane.priceChart.priceScale('right').applyOptions({ minimumWidth: w });
+       pane.volumeChart.priceScale('right').applyOptions({ minimumWidth: w });
+     });
+   }
+
+   async function loadPaneData(pane, symbol, tfKey) {
     if (!pane) return;
     const tfConfig = TIMEFRAME_MAP[tfKey] || TIMEFRAME_MAP['1d'];
     const badge = document.getElementById('data-source-badge');
@@ -813,11 +832,13 @@
         borderColor: d.borderColor
       })));
 
-      pane.volumeSeries.setData(pane.chartData.map(d => ({
-        time: d.time,
-        value: d.volume,
-        color: d.color
-      })));
+       pane.volumeSeries.setData(pane.chartData.map(d => ({
+         time: d.time,
+         value: d.volume,
+         color: d.color
+       })));
+
+       syncPaneScaleWidths(pane);
 
       const totalBars = pane.chartData.length;
       if (totalBars > 0) {
