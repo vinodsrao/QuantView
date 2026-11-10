@@ -3,8 +3,14 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>QuantView - Stock, ETF & Crypto Charting</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="QuantView">
+  <meta name="theme-color" content="#1e222d">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
@@ -46,6 +52,15 @@
 
     ::-webkit-scrollbar-thumb:hover {
       background: #4f566b;
+    }
+
+    @media (max-width: 767px) {
+      #chart-column, #watchlist-column { display: none; }
+      body.mobile-tab-charts #chart-column { display: flex; }
+      body.mobile-tab-watchlists #watchlist-column { display: flex; }
+      #watchlist-column { max-width: 100%; min-width: 0; border-left: none; }
+      #chart-column { border-right: none; }
+      body { padding-bottom: env(safe-area-inset-bottom); }
     }
   </style>
 </head>
@@ -104,11 +119,11 @@
 <div class="flex-1 flex overflow-hidden">
 
     <!-- Chart Column -->
-    <div class="flex-1 flex flex-col overflow-hidden bg-[#131722] border-r border-[#2a2e39]">
+    <div id="chart-column" class="flex-1 flex flex-col overflow-hidden bg-[#131722] border-r border-[#2a2e39]">
 
       <!-- Three Chart Panes: top row two charts side-by-side, bottom row one chart full width -->
       <div class="flex-1 flex flex-col overflow-hidden min-h-0">
-        <div class="flex-[35] flex flex-row overflow-hidden min-h-0 border-b border-[#2a2e39]">
+        <div class="flex-[2] md:flex-[35] flex flex-col md:flex-row overflow-hidden min-h-0 border-b border-[#2a2e39]">
           <div class="flex-1 flex flex-col overflow-hidden border-r border-[#2a2e39] min-h-0" data-pane="0">
           <div class="h-7 border-b border-[#2a2e39] bg-[#1a1e29] px-2 flex items-center justify-between shrink-0 gap-2">
             <div class="flex items-center space-x-2 min-w-0 overflow-hidden">
@@ -116,7 +131,7 @@
               <div id="pane-0-metrics" class="flex items-center space-x-2 text-[10px] font-mono overflow-hidden whitespace-nowrap">
                 <span class="text-gray-400">ATR% <span data-m="atr" class="text-amber-400">--</span></span>
                 <span class="text-gray-400">Chg <span data-m="chg" class="text-white">--</span></span>
-                <span class="text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
+                <span class="hidden md:inline text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
               </div>
             </div>
             <div class="flex items-center space-x-1 bg-[#131722] p-0.5 rounded border border-[#2a2e39] tf-group" data-pane="0">
@@ -137,7 +152,7 @@
               <div id="pane-1-metrics" class="flex items-center space-x-2 text-[10px] font-mono overflow-hidden whitespace-nowrap">
                 <span class="text-gray-400">ATR% <span data-m="atr" class="text-amber-400">--</span></span>
                 <span class="text-gray-400">Chg <span data-m="chg" class="text-white">--</span></span>
-                <span class="text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
+                <span class="hidden md:inline text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
               </div>
             </div>
             <div class="flex items-center space-x-1 bg-[#131722] p-0.5 rounded border border-[#2a2e39] tf-group" data-pane="1">
@@ -152,21 +167,21 @@
             <div id="pane-1-volume" class="relative flex-1 min-h-0"></div>
           </div>
         </div>
-        <div class="flex-[65] flex flex-col overflow-hidden min-h-0" data-pane="2">
+        <div class="flex-[1] md:flex-[65] flex flex-col overflow-hidden min-h-0" data-pane="2">
           <div class="h-7 border-b border-[#2a2e39] bg-[#1a1e29] px-2 flex items-center justify-between shrink-0 gap-2">
             <div class="flex items-center space-x-2 min-w-0 overflow-hidden">
               <span class="text-xs text-gray-400 font-bold shrink-0">Chart 3</span>
               <div id="pane-2-metrics" class="flex items-center space-x-2 text-[10px] font-mono overflow-hidden whitespace-nowrap">
-                <span class="text-gray-400">1Y <span data-m="ret1y" class="text-white">--</span></span>
-                <span class="text-gray-400">3Y <span data-m="cagr3y" class="text-white">--</span></span>
-                <span class="text-gray-400">5Y <span data-m="cagr5y" class="text-white">--</span></span>
-                <span class="text-gray-400">7Y <span data-m="cagr7y" class="text-white">--</span></span>
-                <span class="text-gray-400">10Y <span data-m="cagr10y" class="text-white">--</span></span>
-                <span class="text-gray-400">PivotDD <span data-m="pivotDD" class="text-[#f5279c]">--</span></span>
-                <span class="text-gray-400">ATHDD <span data-m="athDD" class="text-[#f5279c]">--</span></span>
+                <span class="hidden md:inline text-gray-400">1Y <span data-m="ret1y" class="text-white">--</span></span>
+                <span class="hidden md:inline text-gray-400">3Y <span data-m="cagr3y" class="text-white">--</span></span>
+                <span class="hidden md:inline text-gray-400">5Y <span data-m="cagr5y" class="text-white">--</span></span>
+                <span class="hidden md:inline text-gray-400">7Y <span data-m="cagr7y" class="text-white">--</span></span>
+                <span class="hidden md:inline text-gray-400">10Y <span data-m="cagr10y" class="text-white">--</span></span>
+                <span class="hidden md:inline text-gray-400">PivotDD <span data-m="pivotDD" class="text-[#f5279c]">--</span></span>
+                <span class="hidden md:inline text-gray-400">ATHDD <span data-m="athDD" class="text-[#f5279c]">--</span></span>
                 <span class="text-gray-400">ATR% <span data-m="atr" class="text-amber-400">--</span></span>
                 <span class="text-gray-400">Chg <span data-m="chg" class="text-white">--</span></span>
-                <span class="text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
+                <span class="hidden md:inline text-gray-400">AvgVol <span data-m="avgvol" class="text-purple-400">--</span></span>
               </div>
             </div>
             <div class="flex items-center space-x-1 bg-[#131722] p-0.5 rounded border border-[#2a2e39] tf-group" data-pane="2">
@@ -181,21 +196,22 @@
             <div id="pane-2-volume" class="relative flex-1 min-h-0"></div>
         </div>
       </div>
+      <div id="mobile-ticker-strip" class="md:hidden flex overflow-x-auto gap-2 p-2 border-t border-[#2a2e39] bg-[#1e222d] shrink-0"></div>
     </div>
 
   <!-- Sidebar: Watchlists -->
-  <div class="max-w-60 min-w-[200px] bg-[#1e222d] flex flex-col shrink-0 border-l border-[#2a2e39]">
+  <div id="watchlist-column" class="max-w-60 min-w-[200px] bg-[#1e222d] flex flex-col shrink-0 border-l border-[#2a2e39]">
 
     <!-- Watchlist Selector Toolbar -->
     <div class="p-2 border-b border-[#2a2e39] bg-[#171b26] space-y-1.5">
       <div class="flex items-center gap-1.5">
         <select id="watchlist-select"
-                class="flex-1 min-w-0 bg-[#2a2e39] text-white text-xs rounded px-2 py-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
+                class="hidden md:block flex-1 min-w-0 bg-[#2a2e39] text-white text-xs rounded px-2 py-1 outline-none font-medium border border-[#363c4e] cursor-pointer">
         </select>
         <button id="move-wl-up-btn" title="Move Watchlist Up"
-                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▲</button>
+                class="hidden md:inline-block text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▲</button>
         <button id="move-wl-down-btn" title="Move Watchlist Down"
-                class="text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▼</button>
+                class="hidden md:inline-block text-xs px-2 py-1 bg-[#2a2e39] hover:bg-[#363c4e] text-gray-300 rounded text-center">▼</button>
       </div>
       <div class="flex items-center gap-1.5">
         <button id="new-wl-btn" title="Create New Watchlist"
@@ -228,9 +244,16 @@
 
     <!-- Watchlist Items Container -->
     <div id="watchlist-items" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+    <div id="mobile-wl-tabs" class="md:hidden flex overflow-x-auto gap-1 p-2 border-t border-[#2a2e39] bg-[#171b26] shrink-0"></div>
   </div>
 
 </div>
+
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden h-12 border-t border-[#2a2e39] bg-[#1e222d] flex items-center justify-around shrink-0">
+  <button id="mobile-tab-watchlists" class="flex-1 h-full text-xs font-bold text-gray-400">Watchlists</button>
+  <button id="mobile-tab-charts" class="flex-1 h-full text-xs font-bold text-gray-400">Charts</button>
+</nav>
 
 <!-- JavaScript Engine -->
 <script>
@@ -550,12 +573,13 @@
     const pHeight = priceContainer.clientHeight || 300;
     const vHeight = volumeContainer.clientHeight || 80;
 
+    const scaleMinWidth = isMobile() ? 40 : 60;
     pane.priceChart = LightweightCharts.createChart(priceContainer, {
       layout: { background: { color: '#131722' }, textColor: '#d1d4dc', fontSize: 8 },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-      timeScale: { rightOffset: 5, barSpacing: 10 },
+      timeScale: { rightOffset: 0, barSpacing: 10 },
       height: pHeight,
-      rightPriceScale: { minimumWidth: 100, mode: 1 },
+      rightPriceScale: { minimumWidth: scaleMinWidth, mode: 1 },
       watermark: {
         visible: true,
         fontSize: 48,
@@ -570,10 +594,15 @@
     pane.volumeChart = LightweightCharts.createChart(volumeContainer, {
       layout: { background: { color: '#131722' }, textColor: '#d1d4dc', fontSize: 8 },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-      timeScale: { rightOffset: 5, barSpacing: 10 },
+      timeScale: { rightOffset: 0, barSpacing: 10 },
       height: vHeight,
-      rightPriceScale: { minimumWidth: 100, mode: 0 }
+      rightPriceScale: { minimumWidth: scaleMinWidth, mode: 0 }
     });
+
+    if (isMobile()) {
+      pane.priceChart.applyOptions({ width: priceContainer.clientWidth || undefined });
+      pane.volumeChart.applyOptions({ width: volumeContainer.clientWidth || undefined });
+    }
 
     pane.candleSeries = pane.priceChart.addCandlestickSeries();
     pane.volumeSeries = pane.volumeChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
@@ -619,12 +648,19 @@
     });
 
      const ro = new ResizeObserver(() => {
-       const ph = priceContainer.clientHeight || 1;
-       const vh = volumeContainer.clientHeight || 1;
-       pane.priceChart.applyOptions({ height: ph });
-       pane.volumeChart.applyOptions({ height: vh });
-       syncPaneScaleWidths(pane);
-     });
+      const ph = priceContainer.clientHeight || 1;
+      const vh = volumeContainer.clientHeight || 1;
+      if (isMobile()) {
+        const pw = priceContainer.clientWidth || 1;
+        const vw = volumeContainer.clientWidth || 1;
+        pane.priceChart.applyOptions({ width: pw, height: ph });
+        pane.volumeChart.applyOptions({ width: vw, height: vh });
+      } else {
+        pane.priceChart.applyOptions({ height: ph });
+        pane.volumeChart.applyOptions({ height: vh });
+      }
+        syncPaneScaleWidths(pane);
+      });
     ro.observe(priceContainer);
     ro.observe(volumeContainer);
 
@@ -737,9 +773,10 @@
    function syncPaneScaleWidths(pane) {
      if (!pane) return;
      requestAnimationFrame(() => {
-       const pw = pane.priceChart.priceScale('right').width();
-       const vw = pane.volumeChart.priceScale('right').width();
-       const w = Math.max(pw, vw, 100);
+      const pw = pane.priceChart.priceScale('right').width();
+      const vw = pane.volumeChart.priceScale('right').width();
+      const floor = isMobile() ? 40 : 60;
+      const w = Math.max(pw, vw, floor);
        pane.priceChart.priceScale('right').applyOptions({ minimumWidth: w });
        pane.volumeChart.priceScale('right').applyOptions({ minimumWidth: w });
      });
@@ -840,17 +877,23 @@
 
        syncPaneScaleWidths(pane);
 
-      const totalBars = pane.chartData.length;
-      if (totalBars > 0) {
-        let visibleCount = 63;
-        if (tfKey === '1w') visibleCount = 52;
-        if (tfKey === '1M') visibleCount = 60;
-        if (tfKey === '3M') visibleCount = 40;
+       const totalBars = pane.chartData.length;
+       if (totalBars > 0) {
+         let visibleCount = 63;
+         if (tfKey === '1w') visibleCount = 52;
+         if (tfKey === '1M') visibleCount = 60;
+         if (tfKey === '3M') visibleCount = 40;
+         if (isMobile()) {
+           visibleCount = Math.min(visibleCount, 30);
+           if (tfKey === '1w') visibleCount = Math.min(visibleCount, 26);
+           if (tfKey === '1M') visibleCount = Math.min(visibleCount, 30);
+           if (tfKey === '3M') visibleCount = Math.min(visibleCount, 20);
+         }
 
-        const logicalRange = {
-          from: totalBars - Math.min(totalBars, visibleCount),
-          to: totalBars + 2
-        };
+         const logicalRange = {
+           from: totalBars - Math.min(totalBars, visibleCount),
+           to: totalBars
+         };
         pane.priceChart.timeScale().setVisibleLogicalRange(logicalRange);
         pane.volumeChart.timeScale().setVisibleLogicalRange(logicalRange);
       }
@@ -886,16 +929,17 @@
 
   function renderWatchlistSelector() {
     const select = document.getElementById('watchlist-select');
-    if (!select) return;
-    select.innerHTML = '';
-
-    watchlists.forEach(wl => {
-      const option = document.createElement('option');
-      option.value = String(wl.id);
-      option.innerText = wl.name;
-      if (wl.id === activeWatchlistId) option.selected = true;
-      select.appendChild(option);
-    });
+    if (select) {
+      select.innerHTML = '';
+      watchlists.forEach(wl => {
+        const option = document.createElement('option');
+        option.value = String(wl.id);
+        option.innerText = wl.name;
+        if (wl.id === activeWatchlistId) option.selected = true;
+        select.appendChild(option);
+      });
+    }
+    renderMobileWlTabs();
   }
 
   function renderActiveWatchlist() {
@@ -937,6 +981,7 @@
           wlSelectedIndex = tickers.findIndex(t => t.symbol === item.symbol);
           loadAllPanes(currentSymbol);
           renderActiveWatchlist();
+          if (isMobile()) setMobileTab('charts');
         };
 
         const wrap = document.createElement('div');
@@ -987,6 +1032,7 @@
 
       container.appendChild(div);
     });
+    renderMobileTickerStrip();
   }
 
   function clearDropIndicators() {
@@ -1054,6 +1100,63 @@
 
   let wlSelectedIndex = -1;
 
+  function isMobile() { return window.matchMedia('(max-width: 767px)').matches; }
+
+  function setMobileTab(tab) {
+    document.body.classList.remove('mobile-tab-charts', 'mobile-tab-watchlists');
+    document.body.classList.add(tab === 'charts' ? 'mobile-tab-charts' : 'mobile-tab-watchlists');
+    try { localStorage.setItem('quantview_mobile_tab', tab); } catch (e) {}
+    const wBtn = document.getElementById('mobile-tab-watchlists');
+    const cBtn = document.getElementById('mobile-tab-charts');
+    if (wBtn) wBtn.classList.toggle('text-blue-400', tab === 'watchlists');
+    if (cBtn) cBtn.classList.toggle('text-blue-400', tab === 'charts');
+  }
+
+  function renderMobileWlTabs() {
+    const el = document.getElementById('mobile-wl-tabs');
+    if (!el) return;
+    el.innerHTML = '';
+    watchlists.forEach((wl) => {
+      const btn = document.createElement('button');
+      btn.className = `px-3 py-1 rounded text-xs font-bold whitespace-nowrap ${wl.id === activeWatchlistId ? 'bg-blue-600 text-white' : 'bg-[#2a2e39] text-gray-300'}`;
+      btn.textContent = wl.name;
+      btn.onclick = () => {
+        activeWatchlistId = wl.id;
+        saveActiveWatchlistId();
+        wlSelectedIndex = -1;
+        renderWatchlistSelector();
+        renderActiveWatchlist();
+        renderMobileWlTabs();
+        renderMobileTickerStrip();
+      };
+      el.appendChild(btn);
+    });
+  }
+
+  function renderMobileTickerStrip() {
+    const el = document.getElementById('mobile-ticker-strip');
+    if (!el) return;
+    el.innerHTML = '';
+    const active = getActiveWatchlist();
+    const tickers = (active?.items || []).filter(i => i.type === 'ticker');
+    tickers.forEach((item) => {
+      const chip = document.createElement('button');
+      chip.className = `px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${item.symbol === currentSymbol ? 'bg-blue-600 text-white' : 'bg-[#2a2e39] text-gray-300'}`;
+      chip.textContent = item.symbol;
+      chip.onclick = () => {
+        currentSymbol = item.symbol;
+        localStorage.setItem('quantview_symbol', currentSymbol);
+        const sd = document.getElementById('symbol-display');
+        if (sd) sd.innerText = currentSymbol;
+        wlSelectedIndex = tickers.findIndex(t => t.symbol === item.symbol);
+        loadAllPanes(currentSymbol);
+        renderActiveWatchlist();
+        renderMobileTickerStrip();
+      };
+      el.appendChild(chip);
+    });
+  }
+
   function setupWatchlistControls() {
     const select = document.getElementById('watchlist-select');
     const newBtn = document.getElementById('new-wl-btn');
@@ -1067,6 +1170,7 @@
         activeWatchlistId = Number(e.target.value);
         saveActiveWatchlistId();
         renderActiveWatchlist();
+        renderMobileWlTabs();
       };
     }
 
@@ -1241,6 +1345,11 @@
         }
       };
     }
+
+    const mWlBtn = document.getElementById('mobile-tab-watchlists');
+    if (mWlBtn) mWlBtn.onclick = () => setMobileTab('watchlists');
+    const mChBtn = document.getElementById('mobile-tab-charts');
+    if (mChBtn) mChBtn.onclick = () => setMobileTab('charts');
 
     const addTickerBtn = document.getElementById('add-ticker-btn');
     if (addTickerBtn) {
@@ -1429,7 +1538,15 @@
     });
   }
 
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('SW registration failed', err));
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
+    const savedTab = (localStorage.getItem('quantview_mobile_tab') || 'charts');
+    setMobileTab(savedTab === 'watchlists' ? 'watchlists' : 'charts');
     initAllCharts();
     setupWatchlistControls();
     setupSearchControls();
