@@ -55,27 +55,47 @@
     }
 
     @media (max-width: 767px) {
-      #chart-column, #watchlist-column { display: none; }
-      body.mobile-tab-charts #chart-column { display: flex; }
-      body.mobile-tab-watchlists #watchlist-column { display: flex; }
-      #watchlist-column { max-width: 100%; min-width: 0; border-left: none; }
-      #chart-column { border-right: none; }
+      #chart-column,
+      #watchlist-column {
+        display: none;
+      }
+
+      body.mobile-tab-charts #chart-column {
+        display: flex;
+      }
+
+      body.mobile-tab-watchlists #watchlist-column {
+        display: flex;
+      }
+
+      #watchlist-column {
+        max-width: 100%;
+        min-width: 0;
+        border-left: none;
+      }
+
+      #chart-column {
+        border-right: none;
+      }
+
+      body {
+        box-sizing: border-box;
+        padding-top: calc(env(safe-area-inset-top, 0px) + 24px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
       #ios-status-bar-cover {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        height: env(safe-area-inset-top, 0px);
-        min-height: 1px;
+        height: calc(env(safe-area-inset-top, 0px) + 24px);
+        min-height: 24px;
         background-color: #131722;
         z-index: 9999;
         pointer-events: none;
       }
-      body {
-        padding-bottom: env(safe-area-inset-bottom);
-        padding-top: env(safe-area-inset-top, 0px);
-        background-color: #131722;
-      }
+
       header {
         position: relative;
         z-index: 10;
