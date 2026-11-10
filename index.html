@@ -55,6 +55,7 @@
     }
 
     @media (max-width: 767px) {
+      header { padding-top: calc(env(safe-area-inset-top, 44px) + 6px); height: calc(3rem + env(safe-area-inset-top, 44px) + 6px); }
       #chart-column, #watchlist-column { display: none; }
       body.mobile-tab-charts #chart-column { display: flex; }
       body.mobile-tab-watchlists #watchlist-column { display: flex; }
@@ -68,7 +69,7 @@
 <body class="h-screen w-screen overflow-hidden flex flex-col select-none">
 
 <!-- Header Navigation Bar -->
-<header class="h-12 border-b border-[#2a2e39] bg-[#1e222d] flex items-center justify-between px-4 z-10 shrink-0" style="padding-top: env(safe-area-inset-top); height: calc(3rem + env(safe-area-inset-top));">
+<header class="h-12 border-b border-[#2a2e39] bg-[#1e222d] flex items-center justify-between px-4 z-10 shrink-0">
   <div class="flex items-center space-x-4">
     <div class="flex items-center space-x-2 font-bold text-lg text-white">
       <span class="text-blue-500">❖</span>
