@@ -11,3 +11,10 @@ binding = "DB"
 database_name = "quantview-db"
 database_id = "9947865d-cf61-470a-96b2-db9d46a2b13a"
 migrations_dir = "migrations"
+
+[observability.traces]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
