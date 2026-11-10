@@ -1636,13 +1636,17 @@
       renderActiveWatchlist();
     }
 
-    // Auto-refresh scanner watchlists on page load
+    // Auto-refresh scanner watchlists at most once per day to avoid D1 write limits
     try {
-      const res = await fetch(`${WORKER_URL}/api/scanner/auto-refresh`);
-      const data = await res.json();
-      if (data.refreshed) {
-        console.log('Scanner watchlists refreshed:', data.data);
-        await loadWatchlists(); // reload watchlist selector
+      const last = Number(localStorage.getItem('scanner_last_refresh') || 0);
+      if (Date.now() - last > 24 * 60 * 60 * 1000) {
+        const res = await fetch(`${WORKER_URL}/api/scanner/auto-refresh`);
+        const data = await res.json();
+        if (data.refreshed) {
+          localStorage.setItem('scanner_last_refresh', String(Date.now()));
+          console.log('Scanner watchlists refreshed:', data.data);
+          await loadWatchlists(); // reload watchlist selector
+        }
       }
     } catch (err) {
       console.error('Scanner auto-refresh failed:', err);
