@@ -8,7 +8,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="QuantView">
   <meta name="theme-color" content="#1e222d">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -68,7 +68,7 @@
 <body class="h-screen w-screen overflow-hidden flex flex-col select-none">
 
 <!-- Header Navigation Bar -->
-<header class="h-12 border-b border-[#2a2e39] bg-[#1e222d] flex items-center justify-between px-4 z-10 shrink-0">
+<header class="h-12 border-b border-[#2a2e39] bg-[#1e222d] flex items-center justify-between px-4 z-10 shrink-0" style="padding-top: env(safe-area-inset-top); height: calc(3rem + env(safe-area-inset-top));">
   <div class="flex items-center space-x-4">
     <div class="flex items-center space-x-2 font-bold text-lg text-white">
       <span class="text-blue-500">❖</span>
@@ -250,7 +250,7 @@
 </div>
 
 <!-- Mobile Bottom Nav -->
-<nav class="md:hidden h-12 border-t border-[#2a2e39] bg-[#1e222d] flex items-center justify-around shrink-0">
+<nav class="md:hidden h-12 border-t border-[#2a2e39] bg-[#1e222d] flex items-center justify-around shrink-0" style="padding-bottom: env(safe-area-inset-bottom); height: calc(3rem + env(safe-area-inset-bottom));">
   <button id="mobile-tab-watchlists" class="flex-1 h-full text-xs font-bold text-gray-400">Watchlists</button>
   <button id="mobile-tab-charts" class="flex-1 h-full text-xs font-bold text-gray-400">Charts</button>
 </nav>
