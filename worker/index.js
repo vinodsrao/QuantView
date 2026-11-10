@@ -1,4 +1,5 @@
 import { handleAutoRefresh, handleScannerRefresh } from './tv_scanner.js';
+import { handleNseFnoRefresh, handleNseFnoSymbols } from './nse_fno.js';
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -347,6 +348,12 @@ export default {
     }
     if (path === "/api/scanner/refresh" && method === "POST") {
       return handleScannerRefresh(request, env);
+    }
+    if (path === "/api/scanner/nse-fno/refresh" && method === "POST") {
+      return handleNseFnoRefresh(request, env);
+    }
+    if (path === "/api/nse/fno-symbols" && method === "GET") {
+      return handleNseFnoSymbols(request);
     }
 
     if (url.pathname.startsWith("/api/")) {

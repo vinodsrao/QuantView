@@ -1309,12 +1309,12 @@
         try {
           const res = await fetch(`${WORKER_URL}/api/scanner/refresh`, { method: 'POST' });
           const data = await res.json();
-          if (data.ok) {
-            await loadWatchlists();
-            alert('Watchlists refreshed from TradingView!');
-          } else {
-            alert('Refresh failed: ' + (data.error || 'unknown error'));
-          }
+          if (!data.ok) throw new Error(data.error || 'scanner refresh failed');
+          const res2 = await fetch(`${WORKER_URL}/api/scanner/nse-fno/refresh`, { method: 'POST' });
+          const data2 = await res2.json();
+          if (!data2.ok) throw new Error(data2.error || 'NSE F&O refresh failed');
+          await loadWatchlists();
+          alert('Watchlists refreshed from TradingView and NSE F&O!');
         } catch (err) {
           console.error('Scanner refresh failed:', err);
           alert('Refresh failed: ' + err.message);
@@ -1650,6 +1650,22 @@
       }
     } catch (err) {
       console.error('Scanner auto-refresh failed:', err);
+    }
+
+    // Auto-refresh NSE F&O watchlist at most once per day
+    try {
+      const last = Number(localStorage.getItem('nse_fno_last_refresh') || 0);
+      if (Date.now() - last > 24 * 60 * 60 * 1000) {
+        const res = await fetch(`${WORKER_URL}/api/scanner/nse-fno/refresh`, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          localStorage.setItem('nse_fno_last_refresh', String(Date.now()));
+          console.log('NSE F&O watchlist refreshed:', data.data);
+          await loadWatchlists();
+        }
+      }
+    } catch (err) {
+      console.error('NSE F&O auto-refresh failed:', err);
     }
   });
 </script>
