@@ -69,8 +69,10 @@
       }
 
       #watchlist-column {
+        width: 100%;
         max-width: 100%;
         min-width: 0;
+        flex: 1 1 100%;
         border-left: none;
       }
 
@@ -237,7 +239,11 @@
             <div id="pane-2-volume" class="relative flex-1 min-h-0"></div>
         </div>
       </div>
-      <div id="mobile-ticker-strip" class="md:hidden flex overflow-x-auto gap-2 p-2 border-t border-[#2a2e39] bg-[#1e222d] shrink-0"></div>
+      <div id="mobile-ticker-strip" class="md:hidden flex items-center gap-2 p-2 border-t border-[#2a2e39] bg-[#1e222d] shrink-0">
+  <button id="mobile-ticker-prev" class="px-3 py-1 rounded text-xs font-bold bg-[#2a2e39] text-gray-300">◀</button>
+  <div id="mobile-ticker-current" class="flex-1 text-center text-xs font-bold text-white truncate">--</div>
+  <button id="mobile-ticker-next" class="px-3 py-1 rounded text-xs font-bold bg-[#2a2e39] text-gray-300">▶</button>
+</div>
     </div>
 
   <!-- Sidebar: Watchlists -->
@@ -285,7 +291,11 @@
 
     <!-- Watchlist Items Container -->
     <div id="watchlist-items" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
-    <div id="mobile-wl-tabs" class="md:hidden flex overflow-x-auto gap-1 p-2 border-t border-[#2a2e39] bg-[#171b26] shrink-0"></div>
+    <div id="mobile-wl-tabs" class="md:hidden flex items-center gap-2 p-2 border-t border-[#2a2e39] bg-[#171b26] shrink-0">
+  <button id="mobile-wl-prev" class="px-3 py-1 rounded text-xs font-bold bg-[#2a2e39] text-gray-300">◀</button>
+  <div id="mobile-wl-current" class="flex-1 text-center text-xs font-bold text-white truncate">--</div>
+  <button id="mobile-wl-next" class="px-3 py-1 rounded text-xs font-bold bg-[#2a2e39] text-gray-300">▶</button>
+</div>
   </div>
 
 </div>
@@ -1154,48 +1164,71 @@
   }
 
   function renderMobileWlTabs() {
-    const el = document.getElementById('mobile-wl-tabs');
-    if (!el) return;
-    el.innerHTML = '';
-    watchlists.forEach((wl) => {
-      const btn = document.createElement('button');
-      btn.className = `px-3 py-1 rounded text-xs font-bold whitespace-nowrap ${wl.id === activeWatchlistId ? 'bg-blue-600 text-white' : 'bg-[#2a2e39] text-gray-300'}`;
-      btn.textContent = wl.name;
-      btn.onclick = () => {
-        activeWatchlistId = wl.id;
-        saveActiveWatchlistId();
-        wlSelectedIndex = -1;
-        renderWatchlistSelector();
-        renderActiveWatchlist();
-        renderMobileWlTabs();
-        renderMobileTickerStrip();
-      };
-      el.appendChild(btn);
-    });
+    const cur = document.getElementById('mobile-wl-current');
+    const prev = document.getElementById('mobile-wl-prev');
+    const next = document.getElementById('mobile-wl-next');
+    if (!cur || !prev || !next) return;
+    const idx = watchlists.findIndex(w => w.id === activeWatchlistId);
+    cur.textContent = idx >= 0 ? watchlists[idx].name : (watchlists.length ? watchlists[0].name : 'No watchlists');
+    const hasMany = watchlists.length > 1;
+    prev.disabled = !hasMany;
+    next.disabled = !hasMany;
+    prev.onclick = () => {
+      if (watchlists.length < 2) return;
+      const i = watchlists.findIndex(w => w.id === activeWatchlistId);
+      const newIdx = (i - 1 + watchlists.length) % watchlists.length;
+      activeWatchlistId = watchlists[newIdx].id;
+      saveActiveWatchlistId();
+      wlSelectedIndex = -1;
+      renderWatchlistSelector();
+      renderActiveWatchlist();
+      renderMobileWlTabs();
+      renderMobileTickerStrip();
+    };
+    next.onclick = () => {
+      if (watchlists.length < 2) return;
+      const i = watchlists.findIndex(w => w.id === activeWatchlistId);
+      const newIdx = (i + 1) % watchlists.length;
+      activeWatchlistId = watchlists[newIdx].id;
+      saveActiveWatchlistId();
+      wlSelectedIndex = -1;
+      renderWatchlistSelector();
+      renderActiveWatchlist();
+      renderMobileWlTabs();
+      renderMobileTickerStrip();
+    };
   }
 
   function renderMobileTickerStrip() {
-    const el = document.getElementById('mobile-ticker-strip');
-    if (!el) return;
-    el.innerHTML = '';
+    const cur = document.getElementById('mobile-ticker-current');
+    const prev = document.getElementById('mobile-ticker-prev');
+    const next = document.getElementById('mobile-ticker-next');
+    if (!cur || !prev || !next) return;
     const active = getActiveWatchlist();
     const tickers = (active?.items || []).filter(i => i.type === 'ticker');
-    tickers.forEach((item) => {
-      const chip = document.createElement('button');
-      chip.className = `px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${item.symbol === currentSymbol ? 'bg-blue-600 text-white' : 'bg-[#2a2e39] text-gray-300'}`;
-      chip.textContent = item.symbol;
-      chip.onclick = () => {
-        currentSymbol = item.symbol;
-        localStorage.setItem('quantview_symbol', currentSymbol);
-        const sd = document.getElementById('symbol-display');
-        if (sd) sd.innerText = currentSymbol;
-        wlSelectedIndex = tickers.findIndex(t => t.symbol === item.symbol);
-        loadAllPanes(currentSymbol);
-        renderActiveWatchlist();
-        renderMobileTickerStrip();
-      };
-      el.appendChild(chip);
-    });
+    if (wlSelectedIndex < 0 && tickers.length) wlSelectedIndex = tickers.findIndex(t => t.symbol === currentSymbol);
+    if (wlSelectedIndex < 0 && tickers.length) wlSelectedIndex = 0;
+    const currentTicker = tickers.length ? tickers[wlSelectedIndex] : null;
+    cur.textContent = currentTicker ? currentTicker.symbol : (tickers.length ? '--' : 'No symbols');
+    const hasMany = tickers.length > 1;
+    prev.disabled = !hasMany;
+    next.disabled = !hasMany;
+    const move = (delta) => {
+      if (!tickers.length) return;
+      if (wlSelectedIndex < 0) wlSelectedIndex = tickers.findIndex(t => t.symbol === currentSymbol);
+      if (wlSelectedIndex < 0) wlSelectedIndex = 0;
+      wlSelectedIndex = (wlSelectedIndex + delta + tickers.length) % tickers.length;
+      const sym = tickers[wlSelectedIndex].symbol;
+      currentSymbol = sym;
+      localStorage.setItem('quantview_symbol', currentSymbol);
+      const sd = document.getElementById('symbol-display');
+      if (sd) sd.innerText = currentSymbol;
+      loadAllPanes(currentSymbol);
+      renderActiveWatchlist();
+      renderMobileTickerStrip();
+    };
+    prev.onclick = () => move(-1);
+    next.onclick = () => move(1);
   }
 
   function setupWatchlistControls() {
