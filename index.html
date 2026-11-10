@@ -62,6 +62,19 @@
       #chart-column { border-right: none; }
       body { padding-bottom: env(safe-area-inset-bottom); }
     }
+    /* Prevent iOS PWA status-bar blur on mobile */
+    @media (max-width: 767px) {
+      body {
+        padding-top: env(safe-area-inset-top, 0px);
+        background-color: #131722;
+      }
+
+      header {
+        position: relative;
+        z-index: 10;
+        background-color: #1e222d;
+      }
+}
   </style>
 </head>
 
