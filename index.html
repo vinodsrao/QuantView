@@ -60,25 +60,33 @@
       body.mobile-tab-watchlists #watchlist-column { display: flex; }
       #watchlist-column { max-width: 100%; min-width: 0; border-left: none; }
       #chart-column { border-right: none; }
-      body { padding-bottom: env(safe-area-inset-bottom); }
-    }
-    /* Prevent iOS PWA status-bar blur on mobile */
-    @media (max-width: 767px) {
+      #ios-status-bar-cover {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: env(safe-area-inset-top, 0px);
+        min-height: 1px;
+        background-color: #131722;
+        z-index: 9999;
+        pointer-events: none;
+      }
       body {
+        padding-bottom: env(safe-area-inset-bottom);
         padding-top: env(safe-area-inset-top, 0px);
         background-color: #131722;
       }
-
       header {
         position: relative;
         z-index: 10;
         background-color: #1e222d;
       }
-}
+    }
   </style>
 </head>
 
 <body class="h-screen w-screen overflow-hidden flex flex-col select-none">
+<div id="ios-status-bar-cover" aria-hidden="true"></div>
 
 <!-- Header Navigation Bar -->
 <header class="h-12 border-b border-[#2a2e39] bg-[#1e222d] flex items-center justify-between px-4 z-10 shrink-0">
