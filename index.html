@@ -618,7 +618,7 @@
     pane.priceChart = LightweightCharts.createChart(priceContainer, {
       layout: { background: { color: '#131722' }, textColor: '#d1d4dc', fontSize: 8 },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-      timeScale: { rightOffset: 0, barSpacing: 10 },
+      timeScale: { rightOffset: isMobile() ? 2 : 5, barSpacing: 10 },
       height: pHeight,
       rightPriceScale: { minimumWidth: scaleMinWidth, mode: 1 },
       watermark: {
@@ -635,7 +635,7 @@
     pane.volumeChart = LightweightCharts.createChart(volumeContainer, {
       layout: { background: { color: '#131722' }, textColor: '#d1d4dc', fontSize: 8 },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-      timeScale: { rightOffset: 0, barSpacing: 10 },
+      timeScale: { rightOffset: isMobile() ? 2 : 5, barSpacing: 10 },
       height: vHeight,
       rightPriceScale: { minimumWidth: scaleMinWidth, mode: 0 }
     });
@@ -932,8 +932,8 @@
          }
 
          const logicalRange = {
-           from: totalBars - Math.min(totalBars, visibleCount),
-           to: totalBars
+            from: totalBars - Math.min(totalBars, visibleCount),
+            to: totalBars + (isMobile() ? 2 : 5)
          };
         pane.priceChart.timeScale().setVisibleLogicalRange(logicalRange);
         pane.volumeChart.timeScale().setVisibleLogicalRange(logicalRange);
