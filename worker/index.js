@@ -582,13 +582,13 @@ export default {
 
     // Scanner API routes
     if (path === "/api/scanner/auto-refresh" && method === "GET") {
-      return applyCors(await handleAutoRefresh(request, env), request, env);
+      return applyCors(await handleAutoRefresh(request, env, user), request, env);
     }
     if (path === "/api/scanner/refresh" && method === "POST") {
-      return applyCors(await handleScannerRefresh(request, env), request, env);
+      return applyCors(await handleScannerRefresh(request, env, user), request, env);
     }
     if (path === "/api/scanner/nse-fno/refresh" && method === "POST") {
-      return applyCors(await handleNseFnoRefresh(request, env), request, env);
+      return applyCors(await handleNseFnoRefresh(request, env, user), request, env);
     }
     if (path === "/api/nse/fno-symbols" && method === "GET") {
       return applyCors(await handleNseFnoSymbols(request), request, env);

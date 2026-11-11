@@ -54,18 +54,21 @@ export async function fetchNseFnoSymbols() {
   throw new Error('Unable to fetch NSE F&O contract file');
 }
 
-async function ensureWatchlist(db) {
-  let wl = await db.prepare('SELECT id FROM watchlists WHERE name = ?').bind(WATCHLIST_NAME).first();
+async function ensureWatchlist(db, userId) {
+  let wl = await db.prepare('SELECT id FROM watchlists WHERE name = ? AND user_id = ?')
+    .bind(WATCHLIST_NAME, userId).first();
   if (wl) return wl.id;
-  const maxRow = await db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM watchlists').first();
+  const maxRow = await db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM watchlists WHERE user_id = ?')
+    .bind(userId).first();
   const pos = (maxRow?.m ?? -1) + 1;
-  const res = await db.prepare('INSERT INTO watchlists (name, position) VALUES (?, ?)').bind(WATCHLIST_NAME, pos).run();
+  const res = await db.prepare('INSERT INTO watchlists (name, position, user_id) VALUES (?, ?, ?)')
+    .bind(WATCHLIST_NAME, pos, userId).run();
   return res.meta.last_row_id;
 }
 
-export async function syncNseFnoWatchlist(db) {
+export async function syncNseFnoWatchlist(db, userId) {
   const symbols = await fetchNseFnoSymbols();
-  const watchlistId = await ensureWatchlist(db);
+  const watchlistId = await ensureWatchlist(db, userId);
   await db.prepare('DELETE FROM watchlist_items WHERE watchlist_id = ?').bind(watchlistId).run();
 
   const tickers = symbols.map((s) => `${s}.NS`);
@@ -81,9 +84,9 @@ export async function syncNseFnoWatchlist(db) {
   return { watchlistId, count: tickers.length };
 }
 
-export async function handleNseFnoRefresh(request, env) {
+export async function handleNseFnoRefresh(request, env, user) {
   try {
-    const result = await syncNseFnoWatchlist(env.DB);
+    const result = await syncNseFnoWatchlist(env.DB, user.id);
     return json({ ok: true, message: 'NSE F&O watchlist refreshed', data: result });
   } catch (err) {
     console.error('NSE F&O refresh failed:', err);

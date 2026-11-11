@@ -138,18 +138,19 @@ async function fetchTVScanner(market) {
 }
 
 // Sync scanner results to watchlist
-async function syncTVScannerWatchlist(db, market) {
+async function syncTVScannerWatchlist(db, market, userId) {
   const watchlistName = WATCHLIST_NAMES[market];
-  
-  // 1. Find or create watchlist
-  let wl = await db.prepare('SELECT id FROM watchlists WHERE name = ?')
-    .bind(WATCHLIST_NAMES[market]).first();
-  
+
+  // 1. Find or create watchlist (user-scoped)
+  let wl = await db.prepare('SELECT id FROM watchlists WHERE name = ? AND user_id = ?')
+    .bind(watchlistName, userId).first();
+
   if (!wl) {
-    const maxPos = await db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM watchlists').first();
+    const maxPos = await db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM watchlists WHERE user_id = ?')
+      .bind(userId).first();
     const pos = (maxPos?.m ?? -1) + 1;
-    const res = await db.prepare('INSERT INTO watchlists (name, position) VALUES (?, ?)')
-      .bind(WATCHLIST_NAMES[market], pos).run();
+    const res = await db.prepare('INSERT INTO watchlists (name, position, user_id) VALUES (?, ?, ?)')
+      .bind(watchlistName, pos, userId).run();
     wl = { id: res.meta.last_row_id };
   }
   
@@ -209,10 +210,10 @@ async function syncTVScannerWatchlist(db, market) {
 }
 
 // Refresh both watchlists
-async function refreshScannerWatchlists(db) {
+async function refreshScannerWatchlists(db, userId) {
   const results = await Promise.all([
-    syncTVScannerWatchlist(db, 'us'),
-    syncTVScannerWatchlist(db, 'india')
+    syncTVScannerWatchlist(db, 'us', userId),
+    syncTVScannerWatchlist(db, 'india', userId)
   ]);
   
   return {
@@ -223,9 +224,9 @@ async function refreshScannerWatchlists(db) {
 }
 
 // API Handler for manual refresh
-async function handleScannerRefresh(request, env) {
+async function handleScannerRefresh(request, env, user) {
   try {
-    const result = await refreshScannerWatchlists(env.DB);
+    const result = await refreshScannerWatchlists(env.DB, user.id);
     return json({ 
       ok: true, 
       message: 'Watchlists refreshed from TradingView scanner',
@@ -238,9 +239,9 @@ async function handleScannerRefresh(request, env) {
 }
 
 // Auto-refresh on every page load (no KV needed)
-async function handleAutoRefresh(request, env) {
+async function handleAutoRefresh(request, env, user) {
   try {
-    const result = await refreshScannerWatchlists(env.DB);
+    const result = await refreshScannerWatchlists(env.DB, user.id);
     return json({ 
       ok: true, 
       refreshed: true, 
