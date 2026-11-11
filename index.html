@@ -378,10 +378,13 @@
   }
 
   async function watchlistApi(path, method = 'GET', body) {
+    const token = getAuthToken();
+    const headers = body ? { 'Content-Type': 'application/json' } : {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
     const res = await fetch(`${WORKER_URL}/api${path}`, {
       method,
       credentials: 'include',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
     if (res.status === 401) { showAuthOverlay(); throw new Error('Session expired'); }
@@ -866,7 +869,8 @@
 
     try {
        const url = `${WORKER_URL}?symbol=${encodeURIComponent(symbol)}&range=${tfConfig.range}&interval=${tfConfig.interval}`;
-       const response = await fetch(url, { credentials: 'include' });
+       const token = getAuthToken();
+       const response = await fetch(url, { credentials: 'include', headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
        if (response.status === 401) { showAuthOverlay(); throw new Error('Session expired'); }
        if (!response.ok) throw new Error(`Proxy error: ${response.statusText}`);
 
@@ -1334,10 +1338,12 @@
     if (refreshScannerBtn) {
       refreshScannerBtn.onclick = async () => {
         try {
-          const res = await fetch(`${WORKER_URL}/api/scanner/refresh`, { method: 'POST', credentials: 'include' });
+          const token = getAuthToken();
+          const res = await fetch(`${WORKER_URL}/api/scanner/refresh`, { method: 'POST', credentials: 'include', headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
           const data = await res.json();
           if (!data.ok) throw new Error(data.error || 'scanner refresh failed');
-          const res2 = await fetch(`${WORKER_URL}/api/scanner/nse-fno/refresh`, { method: 'POST', credentials: 'include' });
+          const token2 = getAuthToken();
+          const res2 = await fetch(`${WORKER_URL}/api/scanner/nse-fno/refresh`, { method: 'POST', credentials: 'include', headers: token2 ? { 'Authorization': 'Bearer ' + token2 } : {} });
           const data2 = await res2.json();
           if (!data2.ok) throw new Error(data2.error || 'NSE F&O refresh failed');
           await loadWatchlists();
@@ -1547,7 +1553,8 @@
 
   async function performSearch(query) {
     try {
-      const res = await fetch(`${WORKER_URL}/api/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
+      const token = getAuthToken();
+      const res = await fetch(`${WORKER_URL}/api/search?q=${encodeURIComponent(query)}`, { credentials: 'include', headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
       if (res.status === 401) { showAuthOverlay(); throw new Error('Session expired'); }
       if (!res.ok) throw new Error(`Search failed: ${res.status}`);
       searchResults = await res.json();
@@ -1646,11 +1653,18 @@
     });
   }
 
+  function getAuthToken() { try { return localStorage.getItem('quantview_auth_token') || ''; } catch (e) { return ''; } }
+  function setAuthToken(tok) { try { if (tok) localStorage.setItem('quantview_auth_token', tok); else localStorage.removeItem('quantview_auth_token'); } catch (e) {} }
+  function clearAuthToken() { setAuthToken(''); }
+
   async function authApi(path, method = 'GET', body, extraHeaders = {}) {
+    const token = getAuthToken();
+    const headers = body ? { 'Content-Type': 'application/json', ...extraHeaders } : { ...extraHeaders };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
     const res = await fetch(`${WORKER_URL}/api/auth${path}`, {
       method,
       credentials: 'include',
-      headers: body ? { 'Content-Type': 'application/json', ...extraHeaders } : { ...extraHeaders },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
     return res;
@@ -1679,6 +1693,7 @@
 
   async function doLogout() {
     try { await authApi('/logout', 'POST'); } catch (e) {}
+    clearAuthToken();
     showAuthOverlay();
   }
 
@@ -1691,6 +1706,7 @@
       const res = await authApi('/login', 'POST', { email, password });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Login failed');
+      if (data.token) setAuthToken(data.token);
       hideAuthOverlay();
       await startApp();
     } catch (e) {
@@ -1709,6 +1725,7 @@
       const res = await authApi('/register', 'POST', { email, password }, headers);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Registration failed');
+      if (data.token) setAuthToken(data.token);
       hideAuthOverlay();
       await startApp();
     } catch (e) {
@@ -1745,7 +1762,8 @@
     try {
       const last = Number(localStorage.getItem('scanner_last_refresh') || 0);
       if (Date.now() - last > 24 * 60 * 60 * 1000) {
-        const res = await fetch(`${WORKER_URL}/api/scanner/auto-refresh`, { credentials: 'include' });
+        const token = getAuthToken();
+        const res = await fetch(`${WORKER_URL}/api/scanner/auto-refresh`, { credentials: 'include', headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
         const data = await res.json();
         if (data.refreshed) {
           localStorage.setItem('scanner_last_refresh', String(Date.now()));
@@ -1761,7 +1779,8 @@
     try {
       const last = Number(localStorage.getItem('nse_fno_last_refresh') || 0);
       if (Date.now() - last > 24 * 60 * 60 * 1000) {
-        const res = await fetch(`${WORKER_URL}/api/scanner/nse-fno/refresh`, { method: 'POST', credentials: 'include' });
+        const token = getAuthToken();
+        const res = await fetch(`${WORKER_URL}/api/scanner/nse-fno/refresh`, { method: 'POST', credentials: 'include', headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
         const data = await res.json();
         if (data.ok) {
           localStorage.setItem('nse_fno_last_refresh', String(Date.now()));

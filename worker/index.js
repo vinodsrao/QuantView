@@ -33,8 +33,7 @@ export function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
-const SESSION_COOKIE = "qv_session";
-const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 function bytesToHex(bytes) {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -71,19 +70,6 @@ async function pbkdf2Hash(password, saltB64, iterations = 100000) {
     256
   );
   return base64Encode(new Uint8Array(bits));
-}
-
-function parseCookies(request) {
-  const out = {};
-  const raw = request.headers.get("Cookie") || "";
-  for (const part of raw.split(";")) {
-    const idx = part.indexOf("=");
-    if (idx < 0) continue;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    if (k) out[k] = decodeURIComponent(v);
-  }
-  return out;
 }
 
 function constantTimeEqual(a, b) {
@@ -441,10 +427,12 @@ async function handleYahooProxy(request) {
 }
 
 async function authenticate(request, env) {
-  const cookies = parseCookies(request);
-  const token = cookies[SESSION_COOKIE];
+  const authHeader = request.headers.get("Authorization") || "";
+  if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
+  const token = authHeader.slice(7).trim();
   if (!token) return null;
-  const pepper = (env && env.SESSION_PEPPER) || "dev-pepper-change-me";
+  const pepper = env && env.SESSION_PEPPER;
+  if (!pepper) throw new Error("SESSION_PEPPER is not configured");
   const tokenHash = await sha256Hex(token + pepper);
   const db = requireDB(env);
   const row = await db
@@ -464,7 +452,8 @@ async function handleAuth(request, env) {
   const path = url.pathname.replace(/^\/api/, "") || "/";
   const method = request.method.toUpperCase();
   const db = requireDB(env);
-  const pepper = (env && env.SESSION_PEPPER) || "dev-pepper-change-me";
+  const pepper = env && env.SESSION_PEPPER;
+  if (!pepper) throw new Error("SESSION_PEPPER is not configured");
 
   // POST /api/auth/register
   if (path === "/auth/register" && method === "POST") {
@@ -500,16 +489,11 @@ async function handleAuth(request, env) {
     const expires = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
     await db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, userId, expires).run();
 
-    const isHttps = new URL(request.url).protocol === "https:";
-    const sameSite = isHttps ? "None" : "Lax";
-    const secure = isHttps ? "Secure; " : "";
-    const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toUTCString();
-    return new Response(JSON.stringify({ id: userId, email, role }), {
+    return new Response(JSON.stringify({ id: userId, email, role, token }), {
       status: 201,
       headers: {
         "Content-Type": "application/json",
         ...CORS_HEADERS,
-        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=${sameSite}; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
       },
     });
   }
@@ -530,37 +514,28 @@ async function handleAuth(request, env) {
     const expires = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
     await db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, user.id, expires).run();
 
-    const isHttps = new URL(request.url).protocol === "https:";
-    const sameSite = isHttps ? "None" : "Lax";
-    const secure = isHttps ? "Secure; " : "";
-    const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toUTCString();
-    return new Response(JSON.stringify({ id: user.id, email: user.email, role: user.role }), {
+    return new Response(JSON.stringify({ id: user.id, email: user.email, role: user.role, token }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         ...CORS_HEADERS,
-        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=${sameSite}; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
       },
     });
   }
 
   // POST /api/auth/logout
   if (path === "/auth/logout" && method === "POST") {
-    const cookies = parseCookies(request);
-    const token = cookies[SESSION_COOKIE];
+    const authHeader = request.headers.get("Authorization") || "";
+    const token = authHeader.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : null;
     if (token) {
       const tokenHash = await sha256Hex(token + pepper);
       await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(tokenHash).run();
     }
-    const isHttps = new URL(request.url).protocol === "https:";
-    const sameSite = isHttps ? "None" : "Lax";
-    const secure = isHttps ? "Secure; " : "";
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         ...CORS_HEADERS,
-        "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; ${secure}SameSite=${sameSite}; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
       },
     });
   }
