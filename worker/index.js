@@ -33,6 +33,105 @@ export function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
+const SESSION_COOKIE = "qv_session";
+const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function base64Encode(bytes) {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}
+
+function base64UrlEncode(bytes) {
+  return base64Encode(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function sha256Hex(input) {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return bytesToHex(new Uint8Array(hash));
+}
+
+async function pbkdf2Hash(password, saltB64, iterations = 100000) {
+  const salt = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  return base64Encode(new Uint8Array(bits));
+}
+
+function parseCookies(request) {
+  const out = {};
+  const raw = request.headers.get("Cookie") || "";
+  for (const part of raw.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx < 0) continue;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (k) out[k] = decodeURIComponent(v);
+  }
+  return out;
+}
+
+function constantTimeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function getAllowedOrigin(request, env) {
+  const origin = request.headers.get("Origin");
+  if (!origin) return null;
+  let allowed = [];
+  if (env && env.ALLOWED_ORIGINS) {
+    allowed = env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
+  } else {
+    allowed = [
+      "http://localhost:8080",
+      "http://127.0.0.1:8080",
+    ];
+  }
+  // Built-in suffix allowlist for deployed frontends.
+  const suffixes = [".pages.dev", ".vercel.app"];
+  if (allowed.includes(origin)) return origin;
+  try {
+    const u = new URL(origin);
+    if (u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1")) return origin;
+    if (suffixes.some((s) => u.hostname.endsWith(s))) return origin;
+  } catch {}
+  if (allowed.some((a) => origin === a)) return origin;
+  return null;
+}
+
+function applyCors(response, request, env) {
+  const headers = new Headers(response.headers);
+  // Remove any wildcard set by handlers; replace with exact allowed origin.
+  headers.delete("Access-Control-Allow-Origin");
+  headers.delete("Access-Control-Allow-Credentials");
+  const origin = getAllowedOrigin(request, env);
+  if (origin) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Access-Control-Allow-Credentials", "true");
+  }
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With, X-Bootstrap-Token");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 function requireDB(env) {
   if (!env || !env.DB) {
     throw new Error(
@@ -42,14 +141,20 @@ function requireDB(env) {
   return env.DB;
 }
 
-async function ensureSeeded(db) {
-  const countRow = await db.prepare("SELECT COUNT(*) AS n FROM watchlists").first();
+async function ensureSeeded(db, userId) {
+  // Claim any pre-auth (legacy) watchlists for the first user who signs in.
+  const orphanRow = await db.prepare("SELECT COUNT(*) AS n FROM watchlists WHERE user_id IS NULL").first();
+  const userRow = await db.prepare("SELECT COUNT(*) AS n FROM watchlists WHERE user_id = ?").bind(userId).first();
+  if (orphanRow && orphanRow.n > 0 && (!userRow || userRow.n === 0)) {
+    await db.prepare("UPDATE watchlists SET user_id = ? WHERE user_id IS NULL").bind(userId).run();
+  }
+  const countRow = await db.prepare("SELECT COUNT(*) AS n FROM watchlists WHERE user_id = ?").bind(userId).first();
   if (countRow && countRow.n > 0) return;
   let wlPos = 0;
   for (const [name, items] of Object.entries(DEFAULT_SEED)) {
     const wl = await db
-      .prepare("INSERT INTO watchlists (name, position) VALUES (?, ?)")
-      .bind(name, wlPos++)
+      .prepare("INSERT INTO watchlists (name, position, user_id) VALUES (?, ?, ?)")
+      .bind(name, wlPos++, userId)
       .run();
     const watchlistId = wl.meta.last_row_id;
     let itemPos = 0;
@@ -70,19 +175,27 @@ async function ensureSeeded(db) {
   }
 }
 
-async function listWatchlists(db) {
-  await ensureSeeded(db);
+async function listWatchlists(db, userId) {
+  await ensureSeeded(db, userId);
   const { results: wls } = await db
-    .prepare("SELECT id, name FROM watchlists ORDER BY position ASC, id ASC")
+    .prepare("SELECT id, name FROM watchlists WHERE user_id = ? ORDER BY position ASC, id ASC")
+    .bind(userId)
     .all();
-  const { results: items } = await db
-    .prepare(
-      "SELECT id, watchlist_id, item_type, symbol, title, position FROM watchlist_items ORDER BY watchlist_id ASC, position ASC, id ASC"
-    )
-    .all();
+  const wlIds = (wls || []).map((w) => w.id);
+  let items = [];
+  if (wlIds.length) {
+    const placeholders = wlIds.map(() => "?").join(",");
+    const q = await db
+      .prepare(
+        `SELECT id, watchlist_id, item_type, symbol, title, position FROM watchlist_items WHERE watchlist_id IN (${placeholders}) ORDER BY watchlist_id ASC, position ASC, id ASC`
+      )
+      .bind(...wlIds)
+      .all();
+    items = q.results || [];
+  }
   const byWl = new Map();
   for (const w of wls || []) byWl.set(w.id, []);
-  for (const it of items || []) {
+  for (const it of items) {
     if (!byWl.has(it.watchlist_id)) continue;
     byWl.get(it.watchlist_id).push({
       id: it.id,
@@ -98,8 +211,9 @@ async function listWatchlists(db) {
   }));
 }
 
-async function handleWatchlistsAPI(request, env) {
+async function handleWatchlistsAPI(request, env, user) {
   const db = requireDB(env);
+  const userId = user.id;
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   // Strip "/api" prefix, e.g. "/api/watchlists/3/items" -> "/watchlists/3/items"
@@ -115,7 +229,7 @@ async function handleWatchlistsAPI(request, env) {
 
   // GET /api/watchlists
   if (path === "/watchlists" && method === "GET") {
-    const data = await listWatchlists(db);
+    const data = await listWatchlists(db, userId);
     return json(data);
   }
 
@@ -124,10 +238,10 @@ async function handleWatchlistsAPI(request, env) {
     const { name } = await readJson();
     const clean = (name || "").trim();
     if (!clean) return json({ error: "name is required" }, 400);
-    const maxRow = await db.prepare("SELECT COALESCE(MAX(position), -1) AS m FROM watchlists").first();
+    const maxRow = await db.prepare("SELECT COALESCE(MAX(position), -1) AS m FROM watchlists WHERE user_id = ?").bind(userId).first();
     const pos = (maxRow?.m ?? -1) + 1;
     try {
-      const res = await db.prepare("INSERT INTO watchlists (name, position) VALUES (?, ?)").bind(clean, pos).run();
+      const res = await db.prepare("INSERT INTO watchlists (name, position, user_id) VALUES (?, ?, ?)").bind(clean, pos, userId).run();
       return json({ id: res.meta.last_row_id, name: clean, items: [] }, 201);
     } catch (e) {
       if (String(e?.message || "").includes("UNIQUE")) return json({ error: "A watchlist with that name already exists" }, 409);
@@ -140,7 +254,7 @@ async function handleWatchlistsAPI(request, env) {
     const { orderedIds } = await readJson();
     if (!Array.isArray(orderedIds)) return json({ error: "orderedIds[] is required" }, 400);
     const stmts = orderedIds.map((wlId, idx) =>
-      db.prepare("UPDATE watchlists SET position = ? WHERE id = ?").bind(idx, Number(wlId))
+      db.prepare("UPDATE watchlists SET position = ? WHERE id = ? AND user_id = ?").bind(idx, Number(wlId), userId)
     );
     if (stmts.length) await db.batch(stmts);
     return json({ ok: true });
@@ -151,7 +265,7 @@ async function handleWatchlistsAPI(request, env) {
   if (m) {
     const id = Number(m[1]);
     if (method === "GET") {
-      const wl = await db.prepare("SELECT id, name FROM watchlists WHERE id = ?").bind(id).first();
+      const wl = await db.prepare("SELECT id, name FROM watchlists WHERE id = ? AND user_id = ?").bind(id, userId).first();
       if (!wl) return json({ error: "not found" }, 404);
       const { results } = await db
         .prepare("SELECT id, item_type, symbol, title FROM watchlist_items WHERE watchlist_id = ? ORDER BY position ASC, id ASC")
@@ -167,8 +281,8 @@ async function handleWatchlistsAPI(request, env) {
       const { name } = await readJson();
       const clean = (name || "").trim();
       if (!clean) return json({ error: "name is required" }, 400);
-      try {
-        const res = await db.prepare("UPDATE watchlists SET name = ? WHERE id = ?").bind(clean, id).run();
+       try {
+         const res = await db.prepare("UPDATE watchlists SET name = ? WHERE id = ? AND user_id = ?").bind(clean, id, userId).run();
         if (res.meta.changes === 0) return json({ error: "not found" }, 404);
         return json({ id, name: clean });
       } catch (e) {
@@ -177,14 +291,11 @@ async function handleWatchlistsAPI(request, env) {
       }
     }
     if (method === "DELETE") {
-      const { results } = await db.prepare("SELECT COUNT(*) AS n FROM watchlists").all();
-      // Fallback count check
-      const countRow = await db.prepare("SELECT COUNT(*) AS n FROM watchlists").first();
+      const countRow = await db.prepare("SELECT COUNT(*) AS n FROM watchlists WHERE user_id = ?").bind(userId).first();
       if (countRow && countRow.n <= 1) {
         return json({ error: "You must keep at least one watchlist." }, 400);
       }
-      void results;
-      const res = await db.prepare("DELETE FROM watchlists WHERE id = ?").bind(id).run();
+      const res = await db.prepare("DELETE FROM watchlists WHERE id = ? AND user_id = ?").bind(id, userId).run();
       if (res.meta.changes === 0) return json({ error: "not found" }, 404);
       return json({ ok: true });
     }
@@ -194,7 +305,7 @@ async function handleWatchlistsAPI(request, env) {
   m = path.match(/^\/watchlists\/(\d+)\/items$/);
   if (m && method === "POST") {
     const watchlistId = Number(m[1]);
-    const wl = await db.prepare("SELECT id FROM watchlists WHERE id = ?").bind(watchlistId).first();
+    const wl = await db.prepare("SELECT id FROM watchlists WHERE id = ? AND user_id = ?").bind(watchlistId, userId).first();
     if (!wl) return json({ error: "watchlist not found" }, 404);
     const body = await readJson();
     const type = body.type;
@@ -223,7 +334,7 @@ async function handleWatchlistsAPI(request, env) {
   m = path.match(/^\/watchlists\/(\d+)\/items\/order$/);
   if (m && (method === "PUT" || method === "PATCH")) {
     const watchlistId = Number(m[1]);
-    const wl = await db.prepare("SELECT id FROM watchlists WHERE id = ?").bind(watchlistId).first();
+    const wl = await db.prepare("SELECT id FROM watchlists WHERE id = ? AND user_id = ?").bind(watchlistId, userId).first();
     if (!wl) return json({ error: "watchlist not found" }, 404);
     const { orderedIds } = await readJson();
     if (!Array.isArray(orderedIds)) return json({ error: "orderedIds[] is required" }, 400);
@@ -238,6 +349,8 @@ async function handleWatchlistsAPI(request, env) {
   m = path.match(/^\/watchlists\/(\d+)\/items\/(\d+)$/);
   if (m && method === "DELETE") {
     const watchlistId = Number(m[1]);
+    const wl = await db.prepare("SELECT id FROM watchlists WHERE id = ? AND user_id = ?").bind(watchlistId, userId).first();
+    if (!wl) return json({ error: "watchlist not found" }, 404);
     const itemId = Number(m[2]);
     const res = await db
       .prepare("DELETE FROM watchlist_items WHERE id = ? AND watchlist_id = ?")
@@ -327,45 +440,189 @@ async function handleYahooProxy(request) {
   }
 }
 
+async function authenticate(request, env) {
+  const cookies = parseCookies(request);
+  const token = cookies[SESSION_COOKIE];
+  if (!token) return null;
+  const pepper = (env && env.SESSION_PEPPER) || "dev-pepper-change-me";
+  const tokenHash = await sha256Hex(token + pepper);
+  const db = requireDB(env);
+  const row = await db
+    .prepare("SELECT s.user_id AS id, s.expires_at, u.email, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?")
+    .bind(tokenHash)
+    .first();
+  if (!row) return null;
+  if (new Date(row.expires_at).getTime() <= Date.now()) {
+    await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(tokenHash).run();
+    return null;
+  }
+  return { id: row.id, email: row.email, role: row.role };
+}
+
+async function handleAuth(request, env) {
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/^\/api/, "") || "/";
+  const method = request.method.toUpperCase();
+  const db = requireDB(env);
+  const pepper = (env && env.SESSION_PEPPER) || "dev-pepper-change-me";
+
+  // POST /api/auth/register
+  if (path === "/auth/register" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch {}
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "valid email required" }, 400);
+    if (password.length < 8) return json({ error: "password must be at least 8 chars" }, 400);
+
+    const countRow = await db.prepare("SELECT COUNT(*) AS n FROM users").first();
+    const userCount = (countRow && countRow.n) || 0;
+    if (userCount > 0) {
+      const bt = request.headers.get("X-Bootstrap-Token");
+      if (!env.BOOTSTRAP_TOKEN || bt !== env.BOOTSTRAP_TOKEN) return json({ error: "forbidden" }, 403);
+    }
+
+    const existing = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    if (existing) return json({ error: "email already registered" }, 409);
+
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const salt = base64Encode(saltBytes);
+    const hash = await pbkdf2Hash(password, salt);
+    const role = userCount === 0 ? "admin" : "user";
+    const res = await db
+      .prepare("INSERT INTO users (email, password_hash, password_salt, role) VALUES (?, ?, ?, ?)")
+      .bind(email, hash, salt, role)
+      .run();
+    const userId = res.meta.last_row_id;
+
+    const token = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+    const tokenHash = await sha256Hex(token + pepper);
+    const expires = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
+    await db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, userId, expires).run();
+
+    const secure = new URL(request.url).protocol === "https:" ? "Secure; " : "";
+    const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toUTCString();
+    return new Response(JSON.stringify({ id: userId, email, role }), {
+      status: 201,
+      headers: {
+        "Content-Type": "application/json",
+        ...CORS_HEADERS,
+        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
+      },
+    });
+  }
+
+  // POST /api/auth/login
+  if (path === "/auth/login" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch {}
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    const user = await db.prepare("SELECT id, email, password_hash, password_salt, role FROM users WHERE email = ?").bind(email).first();
+    if (!user) return json({ error: "invalid credentials" }, 401);
+    const hash = await pbkdf2Hash(password, user.password_salt);
+    if (!constantTimeEqual(hash, user.password_hash)) return json({ error: "invalid credentials" }, 401);
+
+    const token = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+    const tokenHash = await sha256Hex(token + pepper);
+    const expires = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
+    await db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, user.id, expires).run();
+
+    const secure = new URL(request.url).protocol === "https:" ? "Secure; " : "";
+    const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toUTCString();
+    return new Response(JSON.stringify({ id: user.id, email: user.email, role: user.role }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        ...CORS_HEADERS,
+        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
+      },
+    });
+  }
+
+  // POST /api/auth/logout
+  if (path === "/auth/logout" && method === "POST") {
+    const cookies = parseCookies(request);
+    const token = cookies[SESSION_COOKIE];
+    if (token) {
+      const tokenHash = await sha256Hex(token + pepper);
+      await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(tokenHash).run();
+    }
+    const secure = new URL(request.url).protocol === "https:" ? "Secure; " : "";
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        ...CORS_HEADERS,
+        "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; ${secure}SameSite=Lax; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+      },
+    });
+  }
+
+  // GET /api/auth/me
+  if (path === "/auth/me" && method === "GET") {
+    const u = await authenticate(request, env);
+    if (!u) return json({ error: "unauthorized" }, 401);
+    return json({ id: u.id, email: u.email, role: u.role });
+  }
+
+  return json({ error: "unknown auth route" }, 404);
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: CORS_HEADERS, status: 204 });
+      return applyCors(new Response(null, { status: 204 }), request, env);
     }
 
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method.toUpperCase();
 
+    const isAuthRoute = path.startsWith("/api/auth/");
+    let user = null;
+    if (!isAuthRoute) {
+      user = await authenticate(request, env);
+      if (!user) {
+        return applyCors(json({ error: "unauthorized" }, 401), request, env);
+      }
+    }
+
+    // Auth API routes
+    if (isAuthRoute) {
+      const res = await handleAuth(request, env);
+      return applyCors(res, request, env);
+    }
+
     // Search API route
     if (path === "/api/search" && method === "GET") {
-      return handleSearch(request);
+      return applyCors(await handleSearch(request), request, env);
     }
 
     // Scanner API routes
     if (path === "/api/scanner/auto-refresh" && method === "GET") {
-      return handleAutoRefresh(request, env);
+      return applyCors(await handleAutoRefresh(request, env), request, env);
     }
     if (path === "/api/scanner/refresh" && method === "POST") {
-      return handleScannerRefresh(request, env);
+      return applyCors(await handleScannerRefresh(request, env), request, env);
     }
     if (path === "/api/scanner/nse-fno/refresh" && method === "POST") {
-      return handleNseFnoRefresh(request, env);
+      return applyCors(await handleNseFnoRefresh(request, env), request, env);
     }
     if (path === "/api/nse/fno-symbols" && method === "GET") {
-      return handleNseFnoSymbols(request);
+      return applyCors(await handleNseFnoSymbols(request), request, env);
     }
 
     if (url.pathname.startsWith("/api/")) {
       try {
-        return await handleWatchlistsAPI(request, env);
+        return applyCors(await handleWatchlistsAPI(request, env, user), request, env);
       } catch (err) {
         console.error("Watchlist API error:", err);
         const isConfig = String(err?.message || "").includes("D1 database binding");
-        return json({ error: err.message }, isConfig ? 500 : 500);
+        return applyCors(json({ error: err.message }, isConfig ? 500 : 500), request, env);
       }
     }
 
-    return handleYahooProxy(request);
+    return applyCors(await handleYahooProxy(request), request, env);
   },
 };
