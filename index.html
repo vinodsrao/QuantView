@@ -1237,17 +1237,13 @@
     if (!cur || !prev || !next) return;
     const active = getActiveWatchlist();
     const tickers = (active?.items || []).filter(i => i.type === 'ticker');
-    if (wlSelectedIndex < 0 && tickers.length) wlSelectedIndex = tickers.findIndex(t => t.symbol === currentSymbol);
-    if (wlSelectedIndex < 0 && tickers.length) wlSelectedIndex = 0;
-    const currentTicker = tickers.length ? tickers[wlSelectedIndex] : null;
+    const currentTicker = wlSelectedIndex >= 0 && tickers.length ? tickers[wlSelectedIndex] : null;
     cur.textContent = currentTicker ? currentTicker.symbol : (tickers.length ? '--' : 'No symbols');
     const hasMany = tickers.length > 1;
     prev.disabled = !hasMany;
     next.disabled = !hasMany;
     const move = (delta) => {
       if (!tickers.length) return;
-      if (wlSelectedIndex < 0) wlSelectedIndex = tickers.findIndex(t => t.symbol === currentSymbol);
-      if (wlSelectedIndex < 0) wlSelectedIndex = 0;
       wlSelectedIndex = (wlSelectedIndex + delta + tickers.length) % tickers.length;
       const sym = tickers[wlSelectedIndex].symbol;
       currentSymbol = sym;
