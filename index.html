@@ -150,7 +150,7 @@
           id="symbol-search"
           type="text"
           placeholder="Search symbol (e.g. AAPL, TSLA, BTC-USD)"
-          class="w-full bg-[#131722] border border-[#2a2e39] rounded text-white text-xs px-3 py-1.5 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+          class="w-full bg-[#131722] border border-[#2a2e39] rounded text-white text-base sm:text-xs px-3 py-1.5 placeholder-gray-500 focus:outline-none focus:border-blue-500"
         />
         <div id="search-results"
              class="absolute z-20 w-full bg-[#1e222d] border border-[#2a2e39] rounded mt-1 max-h-64 overflow-y-auto shadow-xl hidden">
@@ -1575,6 +1575,12 @@
     loadAllPanes(currentSymbol);
   }
 
+  function setSearchPlaceholder() {
+    const input = document.getElementById('symbol-search');
+    if (!input) return;
+    input.placeholder = isMobile() ? 'Search' : 'Search symbol (e.g. AAPL, TSLA, BTC-USD)';
+  }
+
   function setupSearchControls() {
     searchInput = document.getElementById('symbol-search');
     searchResultsEl = document.getElementById('search-results');
@@ -1799,7 +1805,10 @@
     initAllCharts();
     setupWatchlistControls();
     setupSearchControls();
+    setSearchPlaceholder();
     setupAuthControls();
+
+    window.addEventListener('resize', setSearchPlaceholder);
 
     const ok = await checkAuth();
     if (ok) await startApp();
