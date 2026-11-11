@@ -500,14 +500,16 @@ async function handleAuth(request, env) {
     const expires = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
     await db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, userId, expires).run();
 
-    const secure = new URL(request.url).protocol === "https:" ? "Secure; " : "";
+    const isHttps = new URL(request.url).protocol === "https:";
+    const sameSite = isHttps ? "None" : "Lax";
+    const secure = isHttps ? "Secure; " : "";
     const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toUTCString();
     return new Response(JSON.stringify({ id: userId, email, role }), {
       status: 201,
       headers: {
         "Content-Type": "application/json",
         ...CORS_HEADERS,
-        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
+        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=${sameSite}; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
       },
     });
   }
@@ -528,14 +530,16 @@ async function handleAuth(request, env) {
     const expires = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
     await db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, user.id, expires).run();
 
-    const secure = new URL(request.url).protocol === "https:" ? "Secure; " : "";
+    const isHttps = new URL(request.url).protocol === "https:";
+    const sameSite = isHttps ? "None" : "Lax";
+    const secure = isHttps ? "Secure; " : "";
     const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toUTCString();
     return new Response(JSON.stringify({ id: user.id, email: user.email, role: user.role }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         ...CORS_HEADERS,
-        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
+        "Set-Cookie": `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secure}SameSite=${sameSite}; Path=/; Max-Age=${SESSION_TTL_SECONDS}; Expires=${expiresAt}`,
       },
     });
   }
@@ -548,13 +552,15 @@ async function handleAuth(request, env) {
       const tokenHash = await sha256Hex(token + pepper);
       await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(tokenHash).run();
     }
-    const secure = new URL(request.url).protocol === "https:" ? "Secure; " : "";
+    const isHttps = new URL(request.url).protocol === "https:";
+    const sameSite = isHttps ? "None" : "Lax";
+    const secure = isHttps ? "Secure; " : "";
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         ...CORS_HEADERS,
-        "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; ${secure}SameSite=Lax; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+        "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; ${secure}SameSite=${sameSite}; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
       },
     });
   }
