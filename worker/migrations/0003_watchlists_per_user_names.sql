@@ -1,7 +1,11 @@
 -- Rebuild watchlists to drop the global UNIQUE(name) constraint:
 -- watchlist names must now only be unique per user.
--- watchlist_items is rebuilt too so its foreign key survives the parent rebuild
--- (SQLite cascades child rows on DROP TABLE when FKs are enabled).
+--
+-- IMPORTANT: the new items table references `watchlists_new` (not `watchlists`).
+-- SQLite executes an implicit DELETE on DROP TABLE, and any child table with
+-- ON DELETE CASCADE pointing at the dropped table gets its rows wiped.
+-- Pointing the FK at watchlists_new means dropping the OLD parent has no
+-- cascade targets; the rename rewrites the FK to the final name.
 
 CREATE TABLE watchlists_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,7 +20,7 @@ INSERT INTO watchlists_new (id, name, position, created_at, user_id)
 
 CREATE TABLE watchlist_items_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  watchlist_id INTEGER NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
+  watchlist_id INTEGER NOT NULL REFERENCES watchlists_new(id) ON DELETE CASCADE,
   item_type TEXT NOT NULL CHECK (item_type IN ('section', 'ticker')),
   symbol TEXT,
   title TEXT,
