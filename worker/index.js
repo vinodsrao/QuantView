@@ -114,7 +114,7 @@ function applyCors(response, request, env) {
     headers.set("Access-Control-Allow-Credentials", "true");
   }
   headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With, X-Bootstrap-Token");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Bootstrap-Token");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
