@@ -1274,6 +1274,7 @@
       select.onchange = (e) => {
         activeWatchlistId = Number(e.target.value);
         saveActiveWatchlistId();
+        wlSelectedIndex = -1;
         renderActiveWatchlist();
         renderMobileWlTabs();
       };
@@ -1495,7 +1496,6 @@
       if (!active) return;
       const tickers = (active.items || []).filter(i => i.type === 'ticker');
       if (!tickers.length) return;
-      if (wlSelectedIndex < 0) wlSelectedIndex = tickers.findIndex(t => t.symbol === currentSymbol);
       if (e.key === 'ArrowDown') wlSelectedIndex = (wlSelectedIndex + 1) % tickers.length;
       else wlSelectedIndex = (wlSelectedIndex - 1 + tickers.length) % tickers.length;
       const sym = tickers[wlSelectedIndex].symbol;
